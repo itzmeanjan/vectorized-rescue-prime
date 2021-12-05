@@ -61,3 +61,23 @@ ulong16 vec_add_ff_p64(ulong16 a, ulong16 b) {
 
   return tmp_3 + tmp_4;
 }
+
+// Function of raising each element of state vector to 7th power
+// by performing multiple vector multiplications
+//
+// This routine is vectorization attempt of function operating on
+// rescue prime hash function's state ( actually it permutes hash state )
+//
+// I adapted it from
+// https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L43-L50
+ulong16 apply_sbox(ulong16 state) {
+  // element-wise multiplication of vectors, so I've {a ^ 2 ∀ a ∈ state}
+  ulong16 state2 = state * state;
+  // element-wise multiplication of vectors, so I've {a ^ 4 ∀ a ∈ state}
+  ulong16 state4 = state2 * state2;
+  // element-wise multiplication of vectors, so I've {a ^ 6 ∀ a ∈ state}
+  ulong16 state6 = state2 * state4;
+
+  // element-wise multiplication of vectors, so I've {a ^ 7 ∀ a ∈ state}
+  return state6 * state;
+}
