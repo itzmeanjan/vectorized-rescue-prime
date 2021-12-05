@@ -41,8 +41,11 @@ ulong16 vec_mul_ff_p64(ulong16 a, ulong16 b) {
 // routine
 // https://github.com/itzmeanjan/ff-gpu/blob/7ad664cff8713b5e6bfe5527531a7532e33abd47/ff_p.cpp#L4-L22
 ulong16 vec_add_ff_p64(ulong16 a, ulong16 b) {
-  // instead of doing b % 16, I'm doing following
-  // so expectation is assert(b_ok == b % 16)
+  // instead of doing b % MOD, I'm executing
+  // next 4 instructions
+  //
+  // So expectation is assert(b_ok == b % mod)
+  // must pass
   ulong16 mod_vec = (ulong16)(MOD);
   long16 over_0 = b >= MOD;
   ulong16 tmp_0 = (as_ulong16(over_0) >> 63) * mod_vec;
