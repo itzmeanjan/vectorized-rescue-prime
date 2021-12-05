@@ -81,6 +81,11 @@ inline ulong16 apply_sbox(ulong16 state) {
   return vec_mul_ff_p64(state, state6);
 }
 
+__kernel void test_apply_sbox(__global ulong16 *in, __global ulong16 *out) {
+  const size_t idx = get_global_id(0);
+  out[idx] = apply_sbox(in[idx]);
+}
+
 // Routine for applying rescue prime hash's round key constants
 // in vectorized fashion
 //
