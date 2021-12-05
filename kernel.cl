@@ -121,6 +121,11 @@ inline ulong reduce_sum_vec2(ulong2 state) {
   return tmp_3 + tmp_4;
 }
 
+__kernel void test_reduce_sum_vec2(__global ulong2 *in, __global ulong *out) {
+  const size_t idx = get_global_id(0);
+  out[idx] = reduce_sum_vec2(in[idx]);
+}
+
 // Modular accumulation of 4-prime field elements
 // implemented using `reduce_sum_vec2`
 //

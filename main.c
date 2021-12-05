@@ -91,6 +91,15 @@ int main() {
   status = test_apply_mds(ctx, c_queue, krnl_3);
   check(status);
 
+  cl_kernel krnl_4 = clCreateKernel(prgm, "test_reduce_sum_vec2", &status);
+  if (status != CL_SUCCESS) {
+    printf("failed to create `test_reduce_sum_vec2` kernel !\n");
+    return EXIT_FAILURE;
+  }
+
+  status = test_reduce_sum_vec2(ctx, c_queue, krnl_4);
+  check(status);
+
   // cl_kernel krnl_3 = clCreateKernel(prgm, "hash_elements", &status);
   // if (status != CL_SUCCESS) {
   //   printf("failed to create rescue prime hash kernel !\n");
@@ -105,6 +114,7 @@ int main() {
   clReleaseKernel(krnl_1);
   clReleaseKernel(krnl_2);
   clReleaseKernel(krnl_3);
+  clReleaseKernel(krnl_4);
   clReleaseProgram(prgm);
   clReleaseCommandQueue(c_queue);
   clReleaseContext(ctx);
