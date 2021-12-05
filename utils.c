@@ -53,3 +53,35 @@ cl_int find_device(cl_device_id *device_id) {
 
   return CL_DEVICE_NOT_FOUND;
 }
+
+cl_int build_kernel(cl_context ctx, cl_device_id dev_id, char *kernel,
+                    cl_program *prgm) {
+  cl_int status;
+
+  FILE *fd = fopen(kernel, "r");
+  fseek(fd, 0, SEEK_END);
+  size_t size = ftell(fd);
+  fseek(fd, 0, SEEK_SET);
+
+  char *kernel_src = malloc(sizeof(char) * size);
+  size_t n = fread(kernel_src, sizeof(char), size, fd);
+
+  assert(n == size);
+  fclose(fd);
+
+  cl_program prgm_ = clCreateProgramWithSource(
+      ctx, 1, (const char **)&kernel_src, &size, &status);
+  if (status != CL_SUCCESS) {
+    return status;
+  }
+
+  status = clBuildProgram(prgm_, 1, &dev_id, NULL, NULL, NULL);
+  if (status != CL_SUCCESS) {
+    return status;
+  }
+
+  *prgm = prgm_;
+  free(kernel_src);
+
+  return CL_SUCCESS;
+}
