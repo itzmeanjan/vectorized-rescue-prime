@@ -2,7 +2,7 @@
 #define CL_TARGET_OPENCL_VERSION 220
 #include <CL/cl.h>
 
-inline const cl_ulong MDS[] = {
+const cl_ulong MDS[] = {
     2108866337646019936ull,
     11223275256334781131ull,
     2318414738826783588ull,
@@ -208,7 +208,7 @@ inline const cl_ulong MDS[] = {
     0ull,
 };
 
-inline const cl_ulong ARK1[] = {
+const cl_ulong ARK1[] = {
     13917550007135091859ull,
     16002276252647722320ull,
     4729924423368391595ull,
@@ -329,7 +329,7 @@ inline const cl_ulong ARK1[] = {
     0ull,
 };
 
-inline const cl_ulong ARK2[] = {
+const cl_ulong ARK2[] = {
     7989257206380839449ull,
     8639509123020237648ull,
     6488561830509603695ull,
