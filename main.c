@@ -47,6 +47,12 @@ int main() {
     return EXIT_FAILURE;
   }
 
+  status = show_build_log(dev_id, prgm);
+  if (status != CL_SUCCESS) {
+    printf("failed to obtain kernel build log !\n");
+    return EXIT_FAILURE;
+  }
+
   // releasing all OpenCL resources !
   clReleaseProgram(prgm);
   clReleaseCommandQueue(c_queue);
