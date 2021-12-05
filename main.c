@@ -1,3 +1,4 @@
+#include <rescue_prime.h>
 #include <stdio.h>
 #include <utils.h>
 
@@ -52,7 +53,17 @@ int main() {
     return EXIT_FAILURE;
   }
 
+  cl_kernel krnl = clCreateKernel(prgm, "hash_elements", &status);
+  if (status != CL_SUCCESS) {
+    printf("failed to create rescue prime hash kernel !\n");
+    return EXIT_FAILURE;
+  }
+
+  status = hash_elements(ctx, c_queue, krnl);
+  check(status);
+
   // releasing all OpenCL resources !
+  clReleaseKernel(krnl);
   clReleaseProgram(prgm);
   clReleaseCommandQueue(c_queue);
   clReleaseContext(ctx);

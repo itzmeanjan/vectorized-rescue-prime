@@ -4,13 +4,16 @@ INCLUDE_DIR = -I./include
 LINK_FLAGS = -lOpenCL
 PROG = run
 
-$(PROG): main.o utils.o
+$(PROG): main.o utils.o rescue_prime.o
 	$(CXX) $^ $(LINK_FLAGS) -o $@
+
+rescue_prime.o: rescue_prime.c include/rescue_prime.h include/rescue_prime_constants.h
+	$(CXX) $(CXX_FLAGS) $(INCLUDE_DIR) -c $<
 
 utils.o: utils.c include/utils.h
 	$(CXX) $(CXX_FLAGS) $(INCLUDE_DIR) -c $<
 
-main.o: main.c include/utils.h include/rescue_prime_constants.h
+main.o: main.c include/utils.h include/rescue_prime.h
 	$(CXX) $(CXX_FLAGS) $(INCLUDE_DIR) -c $<
 
 clean:
