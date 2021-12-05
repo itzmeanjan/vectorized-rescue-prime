@@ -4,7 +4,7 @@ INCLUDE_DIR = -I./include
 LINK_FLAGS = -lOpenCL
 PROG = run
 
-$(PROG): main.o utils.o rescue_prime.o test_rescue_prime.o
+$(PROG): main.o utils.o test_rescue_prime.o
 	$(CXX) $^ $(LINK_FLAGS) -o $@
 
 test_rescue_prime.o: test_rescue_prime.c include/test_rescue_prime.h

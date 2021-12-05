@@ -6,6 +6,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define check(status)                                                          \
+  if (status != CL_SUCCESS) {                                                  \
+    return status;                                                             \
+  };
+
 // Finds the very first CPU, GPU device enlisted on any OpenCL platform
 //
 // Returns status, caller should check for `CL_SUCCESS` and only
