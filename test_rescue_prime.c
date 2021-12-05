@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <test_rescue_prime.h>
 
-const uint64_t MOD = 18446744069414584321ull;
-
 cl_int test_apply_sbox(cl_context ctx, cl_command_queue cq, cl_kernel krnl) {
   cl_int status;
 
@@ -240,7 +238,7 @@ cl_int test_apply_rescue_permutation(cl_context ctx, cl_command_queue cq,
 cl_int test_apply_mds(cl_context ctx, cl_command_queue cq, cl_kernel krnl) {
   cl_int status;
 
-  uint64_t in_arr[16] = {1ull, 1ull, 2ull,  3ull,  4ull, 5ull, 6ull, 7ull,
+  uint64_t in_arr[16] = {0ull, 1ull, 2ull,  3ull,  4ull, 5ull, 6ull, 7ull,
                          8ull, 9ull, 10ull, 11ull, 0ull, 0ull, 0ull, 0ull};
   uint64_t out_arr[16] = {0ull};
   // uint64_t exp_out_arr[16] = {18446743794536677441ull,
@@ -316,6 +314,75 @@ cl_int test_apply_mds(cl_context ctx, cl_command_queue cq, cl_kernel krnl) {
   clReleaseMemObject(mds_buf);
 
   // printf("passed apply_mds tests !\n");
+
+  return status;
+}
+
+cl_int test_reduce_sum_vec2(cl_context ctx, cl_command_queue cq,
+                            cl_kernel krnl) {
+  cl_int status;
+
+  uint64_t in_arr[16] = {1ull << 10, 1ull << 11, 1ull << 12, 1ull << 13,
+                         1ull << 20, 1ull << 21, 1ull << 22, 1ull << 23,
+                         1ull << 60, 1ull << 61, 1ull << 62, 1ull << 63,
+                         MOD - 1ull, 1ull << 63, 0xffffffff, MOD - 1ull};
+  uint64_t out_arr[8] = {0ull};
+  // uint64_t exp_out_arr[16] = {18446743794536677441ull,
+  //                             536870912ull,
+  //                             4503599626321920ull,
+  //                             18446735273321562113ull,
+  //                             18446726477228539905ul,
+  //                             8ull,
+  //                             288230376151711744ull,
+  //                             18446744069414453249ull,
+  //                             68719476736ull,
+  //                             576460752169205760ull,
+  //                             18445618169507741697ull,
+  //                             512ull,
+  //                             0ull,
+  //                             0ull,
+  //                             0ull,
+  //                             0ull};
+
+  cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(cl_ulong) * 16,
+                                 NULL, &status);
+  cl_mem out_buf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, sizeof(cl_ulong) * 8,
+                                  NULL, &status);
+
+  status = clSetKernelArg(krnl, 0, sizeof(cl_mem), &in_buf);
+  status = clSetKernelArg(krnl, 1, sizeof(cl_mem), &out_buf);
+
+  cl_event evt_0;
+  status = clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0, sizeof(in_arr), in_arr,
+                                0, NULL, &evt_0);
+
+  size_t global_size[] = {8};
+  size_t local_size[] = {8};
+
+  cl_event evt_1;
+  status = clEnqueueNDRangeKernel(cq, krnl, 1, NULL, global_size, local_size, 1,
+                                  &evt_0, &evt_1);
+
+  cl_event evt_2;
+  status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, sizeof(out_arr),
+                               out_arr, 1, &evt_1, &evt_2);
+
+  status = clWaitForEvents(1, &evt_2);
+
+  printf("reduce_sum_vec2 :\n");
+  for (size_t i = 0; i < 8; i++) {
+    // assert(out_arr[i] % MOD == exp_out_arr[i]);
+    printf("%lu\t", out_arr[i]);
+  }
+  printf("\n\n");
+
+  clReleaseEvent(evt_0);
+  clReleaseEvent(evt_1);
+  clReleaseEvent(evt_2);
+  clReleaseMemObject(in_buf);
+  clReleaseMemObject(out_buf);
+
+  // printf("passed test_reduce_sum_vec2 tests !\n");
 
   return status;
 }

@@ -11,3 +11,6 @@ cl_int test_apply_rescue_permutation(cl_context ctx, cl_command_queue cq,
                                      cl_kernel krnl);
 
 cl_int test_apply_mds(cl_context ctx, cl_command_queue cq, cl_kernel krnl);
+
+cl_int test_reduce_sum_vec2(cl_context ctx, cl_command_queue cq,
+                            cl_kernel krnl);
