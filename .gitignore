@@ -2,3 +2,4 @@ a.out
 run
 *.o
 .vscode
+*.gch
