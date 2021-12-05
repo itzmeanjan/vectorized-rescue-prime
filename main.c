@@ -44,7 +44,6 @@ int main() {
   status = build_kernel(ctx, dev_id, "kernel.cl", &prgm);
   if (status != CL_SUCCESS) {
     printf("failed to compile kernel !\n");
-    return EXIT_FAILURE;
   }
 
   status = show_build_log(dev_id, prgm);
