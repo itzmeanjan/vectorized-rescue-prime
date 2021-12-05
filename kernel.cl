@@ -71,14 +71,14 @@ inline ulong16 vec_add_ff_p64(ulong16 a, ulong16 b) {
 // https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L43-L50
 inline ulong16 apply_sbox(ulong16 state) {
   // element-wise multiplication of vectors, so I've {a ^ 2 ∀ a ∈ state}
-  ulong16 state2 = state * state;
+  ulong16 state2 = vec_mul_ff_p64(state, state);
   // element-wise multiplication of vectors, so I've {a ^ 4 ∀ a ∈ state}
-  ulong16 state4 = state2 * state2;
+  ulong16 state4 = vec_mul_ff_p64(state2, state2);
   // element-wise multiplication of vectors, so I've {a ^ 6 ∀ a ∈ state}
-  ulong16 state6 = state2 * state4;
+  ulong16 state6 = vec_mul_ff_p64(state2, state4);
 
   // element-wise multiplication of vectors, so I've {a ^ 7 ∀ a ∈ state}
-  return state6 * state;
+  return vec_mul_ff_p64(state, state6);
 }
 
 // Routine for applying rescue prime hash's round key constants
