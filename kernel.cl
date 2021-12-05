@@ -1,15 +1,10 @@
-__kernel void vec_add(__global uint *in_a, __global uint *in_b,
-                      __global uint *out) {
-  size_t idx = get_global_id(0);
-
-  out[idx] = in_a[idx] + in_b[idx];
-}
-
 constant ulong MOD = 18446744069414584321ul;
 constant ulong STATE_WIDTH = 12ul;
 // Following
 // https://github.com/novifinancial/winterfell/blob/4eeb4670387f3682fa0841e09cdcbe1d43302bf3/crypto/src/hash/rescue/rp64_256/mod.rs#L27-L29
 constant ulong NUM_ROUNDS = 7ul;
+constant ulong RATE_WIDTH = 8ul;
+constant ulong DIGEST_WIDTH = 4ul;
 
 // Vectorized modular multiplication for prime field
 // F(2 ** 64 - 2 ** 32 + 1) = F(MOD)
@@ -279,4 +274,33 @@ ulong16 apply_rescue_permutation(ulong16 state,
     state = apply_permutation_round(state, mds, ark1[i], ark2[i]);
   }
   return state;
+}
+
+__kernel void hash_elements(__global ulong *in, __constant size_t *size,
+                            __global ulong16 mds[STATE_WIDTH],
+                            __global ulong16 ark1[NUM_ROUNDS],
+                            __global ulong16 ark2[NUM_ROUNDS],
+                            __global ulong *out) {
+  size_t idx = get_global_id(0);
+  const size_t count = size[0];
+  const size_t begin = idx * count;
+
+  ulong16 state = (ulong16)(0ul);
+  state.sb = count >= MOD ? count - MOD : count;
+
+  size_t i = 0;
+  for (size_t j = 0; j < count; j++) {
+    state[i] = reduce_sum_vec2((ulong2)(state[i], in[begin + j]));
+
+    if ((++i) % RATE_WIDTH == 0) {
+      state = apply_rescue_permutation(state, mds, ark1, ark2);
+      i = 0;
+    }
+  }
+
+  if (i > 0) {
+    state = apply_rescue_permutation(state, mds, ark1, ark2);
+  }
+
+  vstore4(state.s0123, idx, out);
 }
