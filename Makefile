@@ -15,3 +15,6 @@ main.o: main.c
 
 clean:
 	find . -name "*.o" -o -name "a.out" -o -name "run" | xargs rm -f
+
+format:
+	find . -name "*.c" -o -name "*.h" -o -name "*.cl" | xargs clang-format -i
