@@ -40,7 +40,15 @@ int main() {
     return EXIT_FAILURE;
   }
 
+  cl_program prgm;
+  status = build_kernel(ctx, dev_id, "kernel.cl", &prgm);
+  if (status != CL_SUCCESS) {
+    printf("failed to compile kernel !\n");
+    return EXIT_FAILURE;
+  }
+
   // releasing all OpenCL resources !
+  clReleaseProgram(prgm);
   clReleaseCommandQueue(c_queue);
   clReleaseContext(ctx);
   clReleaseDevice(dev_id);
