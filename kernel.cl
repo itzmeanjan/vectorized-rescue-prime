@@ -248,6 +248,11 @@ inline ulong16 apply_inv_sbox(ulong16 state) {
   return vec_mul_ff_p64(a, b);
 }
 
+__kernel void test_apply_inv_sbox(__global ulong16 *in, __global ulong16 *out) {
+  const size_t idx = get_global_id(0);
+  out[idx] = apply_inv_sbox(in[idx]);
+}
+
 // Applies one permutation round on Rescue Prime Hash function state
 //
 // Adapted from

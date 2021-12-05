@@ -56,25 +56,35 @@ int main() {
 
   cl_kernel krnl_0 = clCreateKernel(prgm, "test_apply_sbox", &status);
   if (status != CL_SUCCESS) {
-    printf("failed to create rescue prime hash kernel !\n");
+    printf("failed to create `test_apply_sbox` kernel !\n");
     return EXIT_FAILURE;
   }
 
   status = test_apply_sbox(ctx, c_queue, krnl_0);
   check(status);
 
-  cl_kernel krnl_1 = clCreateKernel(prgm, "hash_elements", &status);
+  cl_kernel krnl_1 = clCreateKernel(prgm, "test_apply_inv_sbox", &status);
+  if (status != CL_SUCCESS) {
+    printf("failed to create `test_apply_inv_sbox` kernel !\n");
+    return EXIT_FAILURE;
+  }
+
+  status = test_apply_inv_sbox(ctx, c_queue, krnl_1);
+  check(status);
+
+  cl_kernel krnl_2 = clCreateKernel(prgm, "hash_elements", &status);
   if (status != CL_SUCCESS) {
     printf("failed to create rescue prime hash kernel !\n");
     return EXIT_FAILURE;
   }
 
-  status = hash_elements(ctx, c_queue, krnl_1);
+  status = hash_elements(ctx, c_queue, krnl_2);
   check(status);
 
   // releasing all OpenCL resources !
   clReleaseKernel(krnl_0);
   clReleaseKernel(krnl_1);
+  clReleaseKernel(krnl_2);
   clReleaseProgram(prgm);
   clReleaseCommandQueue(c_queue);
   clReleaseContext(ctx);
