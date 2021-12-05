@@ -70,7 +70,7 @@ ulong16 vec_add_ff_p64(ulong16 a, ulong16 b) {
 //
 // I adapted it from
 // https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L43-L50
-ulong16 apply_sbox(ulong16 state) {
+inline ulong16 apply_sbox(ulong16 state) {
   // element-wise multiplication of vectors, so I've {a ^ 2 ∀ a ∈ state}
   ulong16 state2 = state * state;
   // element-wise multiplication of vectors, so I've {a ^ 4 ∀ a ∈ state}
@@ -80,4 +80,13 @@ ulong16 apply_sbox(ulong16 state) {
 
   // element-wise multiplication of vectors, so I've {a ^ 7 ∀ a ∈ state}
   return state6 * state;
+}
+
+// Routine for applying rescue prime hash's round key constants
+// in vectorized fashion
+//
+// Simply adapted from
+// https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L65-L69
+inline ulong16 apply_constants(ulong16 state, ulong16 cnst) {
+  return vec_add_ff_p64(state, cnst);
 }
