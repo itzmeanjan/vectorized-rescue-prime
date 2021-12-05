@@ -286,6 +286,15 @@ ulong16 apply_rescue_permutation(ulong16 state,
   return state;
 }
 
+__kernel void test_apply_rescue_permutation(__global ulong16 *in,
+                                            __global ulong16 *out,
+                                            __global ulong16 mds[STATE_WIDTH],
+                                            __global ulong16 ark1[NUM_ROUNDS],
+                                            __global ulong16 ark2[NUM_ROUNDS]) {
+  const size_t idx = get_global_id(0);
+  out[idx] = apply_rescue_permutation(in[idx], mds, ark1, ark2);
+}
+
 __kernel void hash_elements(__global ulong *in, __constant size_t *size,
                             __global ulong16 mds[STATE_WIDTH],
                             __global ulong16 ark1[NUM_ROUNDS],
