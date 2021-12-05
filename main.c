@@ -82,6 +82,15 @@ int main() {
   status = test_apply_rescue_permutation(ctx, c_queue, krnl_2);
   check(status);
 
+  cl_kernel krnl_3 = clCreateKernel(prgm, "test_apply_mds", &status);
+  if (status != CL_SUCCESS) {
+    printf("failed to create `test_apply_mds` kernel !\n");
+    return EXIT_FAILURE;
+  }
+
+  status = test_apply_mds(ctx, c_queue, krnl_3);
+  check(status);
+
   // cl_kernel krnl_3 = clCreateKernel(prgm, "hash_elements", &status);
   // if (status != CL_SUCCESS) {
   //   printf("failed to create rescue prime hash kernel !\n");
@@ -95,7 +104,7 @@ int main() {
   clReleaseKernel(krnl_0);
   clReleaseKernel(krnl_1);
   clReleaseKernel(krnl_2);
-  // clReleaseKernel(krnl_3);
+  clReleaseKernel(krnl_3);
   clReleaseProgram(prgm);
   clReleaseCommandQueue(c_queue);
   clReleaseContext(ctx);

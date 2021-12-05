@@ -205,6 +205,12 @@ inline ulong16 apply_mds(ulong16 state, __global ulong16 mds[STATE_WIDTH]) {
                    0ul, 0ul);
 }
 
+__kernel void test_apply_mds(__global ulong16 *in, __global ulong16 *out,
+                             __global ulong16 mds[STATE_WIDTH]) {
+  const size_t idx = get_global_id(0);
+  out[idx] = apply_mds(in[idx], mds);
+}
+
 // A helper function used when applying inverse sbox permutation function on
 // rescue prime hash state
 //
