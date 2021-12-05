@@ -75,13 +75,37 @@ cl_int build_kernel(cl_context ctx, cl_device_id dev_id, char *kernel,
     return status;
   }
 
-  status = clBuildProgram(prgm_, 1, &dev_id, NULL, NULL, NULL);
+  *prgm = prgm_;
+  free(kernel_src);
+
+  status = clBuildProgram(*prgm, 1, &dev_id, "-cl-std=CL2.0 -w", NULL, NULL);
   if (status != CL_SUCCESS) {
     return status;
   }
 
-  *prgm = prgm_;
-  free(kernel_src);
+  return CL_SUCCESS;
+}
+
+cl_int show_build_log(cl_device_id dev_id, cl_program prgm) {
+  cl_int status;
+
+  size_t log_size;
+  status = clGetProgramBuildInfo(prgm, dev_id, CL_PROGRAM_BUILD_LOG, 0, NULL,
+                                 &log_size);
+  if (status != CL_SUCCESS) {
+    return status;
+  }
+
+  void *log = malloc(log_size);
+  status = clGetProgramBuildInfo(prgm, dev_id, CL_PROGRAM_BUILD_LOG, log_size,
+                                 log, NULL);
+  if (status != CL_SUCCESS) {
+    free(log);
+    return status;
+  }
+
+  printf("\nkernel build log:\n%s\n\n", (char *)log);
+  free(log);
 
   return CL_SUCCESS;
 }

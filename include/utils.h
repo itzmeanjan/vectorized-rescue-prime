@@ -20,3 +20,8 @@ cl_int find_device(cl_device_id *device_id);
 // scheduling execution of kernels of selected device
 cl_int build_kernel(cl_context ctx, cl_device_id dev_id, char *kernel,
                     cl_program *prgm);
+
+// Prints kernel build log onto console, this is generally useful when
+// build fails, but I'm still going to call function just to see what happened
+// during compilation
+cl_int show_build_log(cl_device_id dev_id, cl_program prgm);
