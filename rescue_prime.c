@@ -87,7 +87,7 @@ cl_int hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl) {
   status = clWaitForEvents(1, &evt_6);
   check(status);
 
-  printf("output hash: \n");
+  printf("output hash :\n");
   for (size_t i = 0; i < out_width; i++) {
     printf("%lu\t", out_arr[i]);
   }
