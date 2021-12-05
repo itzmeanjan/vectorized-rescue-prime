@@ -201,3 +201,46 @@ inline ulong16 apply_mds(ulong16 state, ulong16 mds[STATE_WIDTH]) {
   return (ulong16)(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, va, vb, 0ul, 0ul,
                    0ul, 0ul);
 }
+
+// A helper function used when applying inverse sbox permutation function on
+// rescue prime hash state
+//
+// Adapted from
+// https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L107-L122
+// just vectorized here
+inline ulong16 exp_acc(const ulong m, ulong16 base, ulong16 tail) {
+  ulong16 res = base;
+
+  for (ulong i = 0; i < m; i++) {
+    res = vec_mul_ff_p64(res, res);
+  }
+
+  return vec_mul_ff_p64(res, tail);
+}
+
+// Actually exponentiates each element of hash state to 10540996611094048183,
+// but for sake of faster computation, instead 72 multiplications are performed
+//
+// Adapted here from
+// https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L71-L105
+//
+// Originally I took inspiration from
+// https://github.com/novifinancial/winterfell/blob/4eeb4670387f3682fa0841e09cdcbe1d43302bf3/crypto/src/hash/rescue/rp64_256/mod.rs#L285-L318
+inline ulong16 apply_inv_sbox(ulong16 state) {
+  ulong16 t1 = vec_mul_ff_p64(state, state);
+  ulong16 t2 = vec_mul_ff_p64(t1, t1);
+
+  ulong16 t3 = exp_acc(3, t2, t2);
+  ulong16 t4 = exp_acc(6, t3, t3);
+  t4 = exp_acc(12, t4, t4);
+
+  ulong16 t5 = exp_acc(6, t4, t3);
+  ulong16 t6 = exp_acc(31, t5, t5);
+
+  ulong16 a = vec_mul_ff_p64(vec_mul_ff_p64(t6, t6), t5);
+  a = vec_mul_ff_p64(a, a);
+  a = vec_mul_ff_p64(a, a);
+  ulong16 b = vec_mul_ff_p64(vec_mul_ff_p64(t1, t2), state);
+
+  return vec_mul_ff_p64(a, b);
+}
