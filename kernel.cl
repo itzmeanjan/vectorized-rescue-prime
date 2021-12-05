@@ -7,6 +7,9 @@ __kernel void vec_add(__global uint *in_a, __global uint *in_b,
 
 constant ulong MOD = 18446744069414584321ul;
 constant ulong STATE_WIDTH = 12ul;
+// Following
+// https://github.com/novifinancial/winterfell/blob/4eeb4670387f3682fa0841e09cdcbe1d43302bf3/crypto/src/hash/rescue/rp64_256/mod.rs#L27-L29
+constant ulong NUM_ROUNDS = 7ul;
 
 // Vectorized modular multiplication for prime field
 // F(2 ** 64 - 2 ** 32 + 1) = F(MOD)
@@ -178,7 +181,7 @@ inline ulong reduce_sum(ulong16 state) {
 // I adapted
 // https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L52-L63
 // here for vectorizing operations on hash state
-inline ulong16 apply_mds(ulong16 state, ulong16 mds[STATE_WIDTH]) {
+inline ulong16 apply_mds(ulong16 state, __global ulong16 mds[STATE_WIDTH]) {
   ulong v0 = reduce_sum(vec_mul_ff_p64(state, mds[0]));
   ulong v1 = reduce_sum(vec_mul_ff_p64(state, mds[1]));
   ulong v2 = reduce_sum(vec_mul_ff_p64(state, mds[2]));
@@ -243,4 +246,37 @@ inline ulong16 apply_inv_sbox(ulong16 state) {
   ulong16 b = vec_mul_ff_p64(vec_mul_ff_p64(t1, t2), state);
 
   return vec_mul_ff_p64(a, b);
+}
+
+// Applies one permutation round on Rescue Prime Hash function state
+//
+// Adapted from
+// https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L33-L41
+inline ulong16 apply_permutation_round(ulong16 state,
+                                       __global ulong16 mds[STATE_WIDTH],
+                                       ulong16 ark1, ulong16 ark2) {
+  state = apply_sbox(state);
+  state = apply_mds(state, mds);
+  state = apply_constants(state, ark1);
+
+  state = apply_inv_sbox(state);
+  state = apply_mds(state, mds);
+  return apply_constants(state, ark2);
+}
+
+// Applies 7 rescue permutation rounds
+//
+// Taken from
+// https://github.com/novifinancial/winterfell/blob/4eeb4670387f3682fa0841e09cdcbe1d43302bf3/crypto/src/hash/rescue/rp64_256/mod.rs#L232-L240
+//
+// I already implemented same in SYC/ DPC++
+// https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L27-L31
+ulong16 apply_rescue_permutation(ulong16 state,
+                                 __global ulong16 mds[STATE_WIDTH],
+                                 __global ulong16 ark1[NUM_ROUNDS],
+                                 __global ulong16 ark2[NUM_ROUNDS]) {
+  for (ulong i = 0; i < NUM_ROUNDS; i++) {
+    state = apply_permutation_round(state, mds, ark1[i], ark2[i]);
+  }
+  return state;
 }
