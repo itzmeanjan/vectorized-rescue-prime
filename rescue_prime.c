@@ -96,7 +96,7 @@ cl_int hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
   double ts = (double)(end.tv_sec - start.tv_sec) * 1e6 +
               (double)(end.tv_usec - start.tv_usec);
 
-  printf("%5lu x %5lu\t\t%.2f ms\t\t%.2f hashes/ sec\n", glb_sz_x, glb_sz_y,
+  printf("%5lu x %5lu\t\t%10.2f ms\t\t%15.2f hashes/ sec\n", glb_sz_x, glb_sz_y,
          ts * 1e-3, ((double)(glb_sz_x * glb_sz_y) / (double)ts) * 1e6);
 
   cl_event evt_6;
