@@ -186,7 +186,7 @@ inline ulong reduce_sum(ulong16 state) {
 // I adapted
 // https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L52-L63
 // here for vectorizing operations on hash state
-inline ulong16 apply_mds(ulong16 state, __global ulong16 mds[STATE_WIDTH]) {
+inline ulong16 apply_mds(ulong16 state, __global ulong16 mds[12]) {
   ulong v0 = reduce_sum(vec_mul_ff_p64(state, mds[0]));
   ulong v1 = reduce_sum(vec_mul_ff_p64(state, mds[1]));
   ulong v2 = reduce_sum(vec_mul_ff_p64(state, mds[2]));
@@ -211,7 +211,7 @@ inline ulong16 apply_mds(ulong16 state, __global ulong16 mds[STATE_WIDTH]) {
 }
 
 __kernel void test_apply_mds(__global ulong16 *in, __global ulong16 *out,
-                             __global ulong16 mds[STATE_WIDTH]) {
+                             __global ulong16 mds[12]) {
   const size_t idx = get_global_id(0);
   out[idx] = apply_mds(in[idx], mds);
 }
@@ -268,8 +268,7 @@ __kernel void test_apply_inv_sbox(__global ulong16 *in, __global ulong16 *out) {
 //
 // Adapted from
 // https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L33-L41
-inline ulong16 apply_permutation_round(ulong16 state,
-                                       __global ulong16 mds[STATE_WIDTH],
+inline ulong16 apply_permutation_round(ulong16 state, __global ulong16 mds[12],
                                        ulong16 ark1, ulong16 ark2) {
   state = apply_sbox(state);
   state = apply_mds(state, mds);
@@ -287,10 +286,9 @@ inline ulong16 apply_permutation_round(ulong16 state,
 //
 // I already implemented same in SYC/ DPC++
 // https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L27-L31
-ulong16 apply_rescue_permutation(ulong16 state,
-                                 __global ulong16 mds[STATE_WIDTH],
-                                 __global ulong16 ark1[NUM_ROUNDS],
-                                 __global ulong16 ark2[NUM_ROUNDS]) {
+ulong16 apply_rescue_permutation(ulong16 state, __global ulong16 mds[12],
+                                 __global ulong16 ark1[7],
+                                 __global ulong16 ark2[7]) {
   for (ulong i = 0; i < NUM_ROUNDS; i++) {
     state = apply_permutation_round(state, mds, ark1[i], ark2[i]);
   }
@@ -299,9 +297,9 @@ ulong16 apply_rescue_permutation(ulong16 state,
 
 __kernel void test_apply_rescue_permutation(__global ulong16 *in,
                                             __global ulong16 *out,
-                                            __global ulong16 mds[STATE_WIDTH],
-                                            __global ulong16 ark1[NUM_ROUNDS],
-                                            __global ulong16 ark2[NUM_ROUNDS]) {
+                                            __global ulong16 mds[12],
+                                            __global ulong16 ark1[7],
+                                            __global ulong16 ark2[7]) {
   const size_t idx = get_global_id(0);
   out[idx] = apply_rescue_permutation(in[idx], mds, ark1, ark2);
 }
@@ -320,10 +318,8 @@ __kernel void test_apply_rescue_permutation(__global ulong16 *in,
 // Simply adapted from
 // https://github.com/itzmeanjan/ff-gpu/blob/ad6947dce3033775822e7a790e5b793a8034fec2/rescue_prime.cpp#L3-L25
 __kernel void hash_elements(__global ulong *in, __constant size_t *size,
-                            __global ulong16 mds[STATE_WIDTH],
-                            __global ulong16 ark1[NUM_ROUNDS],
-                            __global ulong16 ark2[NUM_ROUNDS],
-                            __global ulong *out) {
+                            __global ulong16 mds[12], __global ulong16 ark1[7],
+                            __global ulong16 ark2[7], __global ulong *out) {
   const size_t r_idx = get_global_id(0);
   const size_t c_idx = get_global_id(1);
   const size_t width = get_global_size(1);
@@ -337,7 +333,34 @@ __kernel void hash_elements(__global ulong *in, __constant size_t *size,
 
   size_t i = 0;
   for (size_t j = 0; j < count; j++) {
-    state[i] = reduce_sum_vec2((ulong2)(state[i], in[begin + j]));
+    // because OpenCL C 1.2 accessing vector element
+    // by index not allowed
+    switch (i) {
+    case 0:
+      state.s0 = reduce_sum_vec2((ulong2)(state.s0, in[begin + j]));
+      break;
+    case 1:
+      state.s1 = reduce_sum_vec2((ulong2)(state.s1, in[begin + j]));
+      break;
+    case 2:
+      state.s2 = reduce_sum_vec2((ulong2)(state.s2, in[begin + j]));
+      break;
+    case 3:
+      state.s3 = reduce_sum_vec2((ulong2)(state.s3, in[begin + j]));
+      break;
+    case 4:
+      state.s4 = reduce_sum_vec2((ulong2)(state.s4, in[begin + j]));
+      break;
+    case 5:
+      state.s5 = reduce_sum_vec2((ulong2)(state.s5, in[begin + j]));
+      break;
+    case 6:
+      state.s6 = reduce_sum_vec2((ulong2)(state.s6, in[begin + j]));
+      break;
+    case 7:
+      state.s7 = reduce_sum_vec2((ulong2)(state.s7, in[begin + j]));
+      break;
+    };
 
     if ((++i) % RATE_WIDTH == 0) {
       state = apply_rescue_permutation(state, mds, ark1, ark2);
