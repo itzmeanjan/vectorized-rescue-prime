@@ -306,6 +306,19 @@ __kernel void test_apply_rescue_permutation(__global ulong16 *in,
   out[idx] = apply_rescue_permutation(in[idx], mds, ark1, ark2);
 }
 
+// This is the main hash kernel, which takes M x N-many input,
+// each of width `size`, on which independently rescue prime hashing is applied
+// and at end when whole input of width `size` is consumed into hash state
+// first 4 elements of hash state are written into respective position in
+// output array.
+//
+// Note, rescue prime hash function is itself not parallel, but when you've
+// lots of input ( of same width ) to operate on, it can be beneficial to
+// offload computation to accelerator which can work in data parallel
+// environment
+//
+// Simply adapted from
+// https://github.com/itzmeanjan/ff-gpu/blob/ad6947dce3033775822e7a790e5b793a8034fec2/rescue_prime.cpp#L3-L25
 __kernel void hash_elements(__global ulong *in, __constant size_t *size,
                             __global ulong16 mds[STATE_WIDTH],
                             __global ulong16 ark1[NUM_ROUNDS],

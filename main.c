@@ -106,7 +106,7 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  printf("\n\nRescue Prime Hash Benchmark\n\n");
+  printf("\nRescue Prime Hash Benchmark\n\n");
   for (size_t i = 7; i < 11; i++) {
     status = hash_elements(ctx, c_queue, krnl_5, 1ul << i, 1ul << i, 1, 128);
     check(status);
