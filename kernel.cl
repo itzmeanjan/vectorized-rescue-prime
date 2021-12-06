@@ -106,17 +106,17 @@ inline ulong16 apply_constants(ulong16 state, ulong16 cnst) {
 // Just the difference is two operands ( i.e. scalars ) are stored in .x and .y
 // component of two-element vector
 inline ulong reduce_sum_vec2(ulong2 state) {
-  long over_0 = state.y >= MOD;
-  ulong tmp_0 = (as_ulong(over_0) >> 63) * MOD;
+  int over_0 = state.y >= MOD;
+  ulong tmp_0 = as_uint(over_0) * MOD;
   ulong b_ok = state.y - tmp_0;
 
   ulong tmp_1 = state.x + b_ok;
-  long over_1 = state.x > (ULONG_MAX - b_ok);
-  ulong tmp_2 = as_ulong(over_1) & 0x00000000ffffffff;
+  int over_1 = state.x > (ULONG_MAX - b_ok);
+  ulong tmp_2 = as_uint(over_1) * 0x00000000ffffffff;
 
   ulong tmp_3 = tmp_1 + tmp_2;
-  long over_2 = tmp_1 > (ULONG_MAX - tmp_2);
-  ulong tmp_4 = as_ulong(over_2) & 0x00000000ffffffff;
+  int over_2 = tmp_1 > (ULONG_MAX - tmp_2);
+  ulong tmp_4 = as_uint(over_2) * 0x00000000ffffffff;
 
   return tmp_3 + tmp_4;
 }
