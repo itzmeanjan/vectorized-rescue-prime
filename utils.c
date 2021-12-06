@@ -109,3 +109,9 @@ cl_int show_build_log(cl_device_id dev_id, cl_program prgm) {
 
   return CL_SUCCESS;
 }
+
+void random_field_elements(cl_ulong *in, size_t count) {
+  for (size_t i = 0; i < count; i++) {
+    *(in + i) = (cl_ulong)rand();
+  }
+}

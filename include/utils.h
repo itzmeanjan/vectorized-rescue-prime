@@ -30,3 +30,15 @@ cl_int build_kernel(cl_context ctx, cl_device_id dev_id, char *kernel,
 // build fails, but I'm still going to call function just to see what happened
 // during compilation
 cl_int show_build_log(cl_device_id dev_id, cl_program prgm);
+
+// Generates `count`-many random prime field elements which
+// are stored in provided pre-allocated memory
+//
+// Note, this function actually makes use of `rand()` function
+// for getting random numbers, as documentation of `rand()`
+// says it'll return 32-bit random number, so all elements
+// will be inside field
+//
+// Which is why I've skipped the part of modulo dividing
+// generated random numbers
+void random_field_elements(cl_ulong *in, size_t count);

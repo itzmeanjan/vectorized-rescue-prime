@@ -311,9 +311,13 @@ __kernel void hash_elements(__global ulong *in, __constant size_t *size,
                             __global ulong16 ark1[NUM_ROUNDS],
                             __global ulong16 ark2[NUM_ROUNDS],
                             __global ulong *out) {
-  size_t idx = get_global_id(0);
+  const size_t r_idx = get_global_id(0);
+  const size_t c_idx = get_global_id(1);
+  const size_t width = get_global_size(1);
+  // linearised index (i.e. in 1D) of work-item in 2D compute index space
+  const size_t lin_idx = r_idx * width + c_idx;
   const size_t count = size[0];
-  const size_t begin = idx * count;
+  const size_t begin = lin_idx * count;
 
   ulong16 state = (ulong16)(0ul);
   state.sb = count >= MOD ? count - MOD : count;
@@ -332,5 +336,5 @@ __kernel void hash_elements(__global ulong *in, __constant size_t *size,
     state = apply_rescue_permutation(state, mds, ark1, ark2);
   }
 
-  vstore4(state.s0123, idx, out);
+  vstore4(state.s0123, lin_idx, out);
 }

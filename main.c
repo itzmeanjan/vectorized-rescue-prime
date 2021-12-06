@@ -43,6 +43,9 @@ int main() {
   status = build_kernel(ctx, dev_id, "kernel.cl", &prgm);
   if (status != CL_SUCCESS) {
     printf("failed to compile kernel !\n");
+
+    show_build_log(dev_id, prgm);
+    return EXIT_FAILURE;
   }
 
   status = show_build_log(dev_id, prgm);
@@ -103,8 +106,11 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  status = hash_elements(ctx, c_queue, krnl_5);
-  check(status);
+  printf("\n\nRescue Prime Hash Benchmark\n\n");
+  for (size_t i = 7; i < 11; i++) {
+    status = hash_elements(ctx, c_queue, krnl_5, 1ul << i, 1ul << i, 1, 128);
+    check(status);
+  }
 
   // releasing all OpenCL resources !
   clReleaseKernel(krnl_0);
