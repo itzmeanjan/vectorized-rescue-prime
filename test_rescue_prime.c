@@ -1,5 +1,3 @@
-#include <rescue_prime_constants.h>
-#include <stdio.h>
 #include <test_rescue_prime.h>
 
 cl_int test_apply_sbox(cl_context ctx, cl_command_queue cq, cl_kernel krnl) {

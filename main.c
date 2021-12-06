@@ -1,7 +1,4 @@
-// #include <rescue_prime.h>
-#include <stdio.h>
-#include <test_rescue_prime.h>
-#include <utils.h>
+#include <rescue_prime.h>
 
 int main() {
   cl_int status;
@@ -100,14 +97,14 @@ int main() {
   status = test_reduce_sum_vec2(ctx, c_queue, krnl_4);
   check(status);
 
-  // cl_kernel krnl_3 = clCreateKernel(prgm, "hash_elements", &status);
-  // if (status != CL_SUCCESS) {
-  //   printf("failed to create rescue prime hash kernel !\n");
-  //   return EXIT_FAILURE;
-  // }
+  cl_kernel krnl_5 = clCreateKernel(prgm, "hash_elements", &status);
+  if (status != CL_SUCCESS) {
+    printf("failed to create rescue prime hash kernel !\n");
+    return EXIT_FAILURE;
+  }
 
-  // status = hash_elements(ctx, c_queue, krnl_3);
-  // check(status);
+  status = hash_elements(ctx, c_queue, krnl_5);
+  check(status);
 
   // releasing all OpenCL resources !
   clReleaseKernel(krnl_0);
@@ -115,6 +112,7 @@ int main() {
   clReleaseKernel(krnl_2);
   clReleaseKernel(krnl_3);
   clReleaseKernel(krnl_4);
+  clReleaseKernel(krnl_5);
   clReleaseProgram(prgm);
   clReleaseCommandQueue(c_queue);
   clReleaseContext(ctx);

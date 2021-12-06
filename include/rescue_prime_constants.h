@@ -2,6 +2,9 @@
 #define CL_TARGET_OPENCL_VERSION 220
 #include <CL/cl.h>
 
+#if !defined(RESCUE_PRIME_CONSTANTS)
+#define RESCUE_PRIME_CONSTANTS 1
+
 const uint64_t MOD = 18446744069414584321ull;
 
 const cl_ulong MDS[] = {
@@ -451,3 +454,5 @@ const cl_ulong ARK2[] = {
     0ull % MOD,
     0ull % MOD,
 };
+
+#endif
