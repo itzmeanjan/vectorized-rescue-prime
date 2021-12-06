@@ -140,22 +140,22 @@ cl_int test_apply_rescue_permutation(cl_context ctx, cl_command_queue cq,
   uint64_t in_arr[16] = {0ull, 1ull, 2ull,  3ull,  4ull, 5ull, 6ull, 7ull,
                          8ull, 9ull, 10ull, 11ull, 0ull, 0ull, 0ull, 0ull};
   uint64_t out_arr[16] = {0ull};
-  // uint64_t exp_out_arr[16] = {18446743794536677441ull,
-  //                             536870912ull,
-  //                             4503599626321920ull,
-  //                             18446735273321562113ull,
-  //                             18446726477228539905ul,
-  //                             8ull,
-  //                             288230376151711744ull,
-  //                             18446744069414453249ull,
-  //                             68719476736ull,
-  //                             576460752169205760ull,
-  //                             18445618169507741697ull,
-  //                             512ull,
-  //                             0ull,
-  //                             0ull,
-  //                             0ull,
-  //                             0ull};
+  uint64_t exp_out_arr[16] = {10809974140050983728ull,
+                              6938491977181280539ull,
+                              8834525837561071698ull,
+                              6854417192438540779ull,
+                              4476630872663101667ull,
+                              6292749486700362097ull,
+                              18386622366690620454ull,
+                              10614098972800193173ull,
+                              7543273285584849722ull,
+                              9490898458612615694ull,
+                              9030271581669113292ull,
+                              10101107035874348250ull,
+                              0ull,
+                              0ull,
+                              0ull,
+                              0ull};
 
   cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(cl_ulong) * 16,
                                  NULL, &status);
@@ -206,17 +206,9 @@ cl_int test_apply_rescue_permutation(cl_context ctx, cl_command_queue cq,
 
   status = clWaitForEvents(1, &evt_5);
 
-  // Not yet in a state to be in form of test case
-  // with assertions !
-  //
-  // WIP
-  //
-  printf("apply rescue permutation :\n");
   for (size_t i = 0; i < 16; i++) {
-    // assert(out_arr[i] % MOD == exp_out_arr[i]);
-    printf("%lu\t", out_arr[i]);
+    assert(out_arr[i] % MOD == exp_out_arr[i] % MOD);
   }
-  printf("\n\n");
 
   clReleaseEvent(evt_0);
   clReleaseEvent(evt_1);
@@ -230,7 +222,7 @@ cl_int test_apply_rescue_permutation(cl_context ctx, cl_command_queue cq,
   clReleaseMemObject(ark1_buf);
   clReleaseMemObject(ark2_buf);
 
-  // printf("passed apply_rescue_permutation tests !\n");
+  printf("passed apply_rescue_permutation tests !\n");
 
   return status;
 }
@@ -241,22 +233,22 @@ cl_int test_apply_mds(cl_context ctx, cl_command_queue cq, cl_kernel krnl) {
   uint64_t in_arr[16] = {0ull, 1ull, 2ull,  3ull,  4ull, 5ull, 6ull, 7ull,
                          8ull, 9ull, 10ull, 11ull, 0ull, 0ull, 0ull, 0ull};
   uint64_t out_arr[16] = {0ull};
-  // uint64_t exp_out_arr[16] = {18446743794536677441ull,
-  //                             536870912ull,
-  //                             4503599626321920ull,
-  //                             18446735273321562113ull,
-  //                             18446726477228539905ul,
-  //                             8ull,
-  //                             288230376151711744ull,
-  //                             18446744069414453249ull,
-  //                             68719476736ull,
-  //                             576460752169205760ull,
-  //                             18445618169507741697ull,
-  //                             512ull,
-  //                             0ull,
-  //                             0ull,
-  //                             0ull,
-  //                             0ull};
+  uint64_t exp_out_arr[16] = {8268579649362235275ull,
+                              2236502997719307940ull,
+                              4445585223683938180ull,
+                              8490351819144058838ull,
+                              17912450758129541069ull,
+                              12381447012212465193ull,
+                              6444916863184583255ull,
+                              5403602327365240081ull,
+                              7656905977925454065ull,
+                              12880871053868334997ull,
+                              13669293285556299269ull,
+                              2401034710645280649ull,
+                              0ull,
+                              0ull,
+                              0ull,
+                              0ull};
 
   cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(cl_ulong) * 16,
                                  NULL, &status);
@@ -293,17 +285,9 @@ cl_int test_apply_mds(cl_context ctx, cl_command_queue cq, cl_kernel krnl) {
 
   status = clWaitForEvents(1, &evt_3);
 
-  // Not yet in a state to be in form of test case
-  // with assertions !
-  //
-  // WIP
-  //
-  printf("apply mds :\n");
   for (size_t i = 0; i < 16; i++) {
-    // assert(out_arr[i] % MOD == exp_out_arr[i]);
-    printf("%lu\t", out_arr[i]);
+    assert(out_arr[i] % MOD == exp_out_arr[i] % MOD);
   }
-  printf("\n\n");
 
   clReleaseEvent(evt_0);
   clReleaseEvent(evt_1);
@@ -313,7 +297,7 @@ cl_int test_apply_mds(cl_context ctx, cl_command_queue cq, cl_kernel krnl) {
   clReleaseMemObject(out_buf);
   clReleaseMemObject(mds_buf);
 
-  // printf("passed apply_mds tests !\n");
+  printf("passed apply_mds tests !\n");
 
   return status;
 }
@@ -327,22 +311,14 @@ cl_int test_reduce_sum_vec2(cl_context ctx, cl_command_queue cq,
                          1ull << 60, 1ull << 61, 1ull << 62, 1ull << 63,
                          MOD - 1ull, 1ull << 63, 0xffffffff, MOD - 1ull};
   uint64_t out_arr[8] = {0ull};
-  // uint64_t exp_out_arr[16] = {18446743794536677441ull,
-  //                             536870912ull,
-  //                             4503599626321920ull,
-  //                             18446735273321562113ull,
-  //                             18446726477228539905ul,
-  //                             8ull,
-  //                             288230376151711744ull,
-  //                             18446744069414453249ull,
-  //                             68719476736ull,
-  //                             576460752169205760ull,
-  //                             18445618169507741697ull,
-  //                             512ull,
-  //                             0ull,
-  //                             0ull,
-  //                             0ull,
-  //                             0ull};
+  uint64_t exp_out_arr[8] = {3072ull,
+                             12288ull,
+                             3145728ull,
+                             12582912ull,
+                             3458764513820540928ull,
+                             13835058055282163712ull,
+                             9223372036854775807ull,
+                             18446744073709551615ull};
 
   cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(cl_ulong) * 16,
                                  NULL, &status);
@@ -369,12 +345,9 @@ cl_int test_reduce_sum_vec2(cl_context ctx, cl_command_queue cq,
 
   status = clWaitForEvents(1, &evt_2);
 
-  printf("reduce_sum_vec2 :\n");
   for (size_t i = 0; i < 8; i++) {
-    // assert(out_arr[i] % MOD == exp_out_arr[i]);
-    printf("%lu\t", out_arr[i]);
+    assert(out_arr[i] % MOD == exp_out_arr[i] % MOD);
   }
-  printf("\n\n");
 
   clReleaseEvent(evt_0);
   clReleaseEvent(evt_1);
@@ -382,7 +355,7 @@ cl_int test_reduce_sum_vec2(cl_context ctx, cl_command_queue cq,
   clReleaseMemObject(in_buf);
   clReleaseMemObject(out_buf);
 
-  // printf("passed test_reduce_sum_vec2 tests !\n");
+  printf("passed reduce_sum_vec2 tests !\n");
 
   return status;
 }
