@@ -121,7 +121,7 @@ int main() {
 
   printf("\nRescue Prime Hash Benchmark\n\n");
   for (size_t i = 7; i < 11; i++) {
-    status = hash_elements(ctx, c_queue, krnl_5, 1ul << i, 1ul << i, 1, 128);
+    status = bench_hash_elements(ctx, c_queue, krnl_5, 1ul << i, 1ul << i, 1, 128);
     check(status);
   }
 

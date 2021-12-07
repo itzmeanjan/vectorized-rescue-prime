@@ -10,7 +10,7 @@
 // With
 // https://github.com/itzmeanjan/vectorized-rescue-prime/blob/91f31a86b16a936e832f4cad9b3cb183d106655d/README.md#benchmark
 // setup
-cl_int hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
+cl_int bench_hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
                      size_t glb_sz_x, size_t glb_sz_y, size_t loc_sz_x,
                      size_t loc_sz_y);
 
