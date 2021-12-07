@@ -110,6 +110,15 @@ int main() {
     return EXIT_FAILURE;
   }
 
+  cl_kernel krnl_6 = clCreateKernel(prgm, "merge", &status);
+  if (status != CL_SUCCESS) {
+    printf("failed to create merge kernel !\n");
+    return EXIT_FAILURE;
+  }
+
+  status = test_merge(ctx, c_queue, krnl_5, krnl_6);
+  check(status);
+
   printf("\nRescue Prime Hash Benchmark\n\n");
   for (size_t i = 7; i < 11; i++) {
     status = hash_elements(ctx, c_queue, krnl_5, 1ul << i, 1ul << i, 1, 128);
@@ -123,6 +132,7 @@ int main() {
   clReleaseKernel(krnl_3);
   clReleaseKernel(krnl_4);
   clReleaseKernel(krnl_5);
+  clReleaseKernel(krnl_6);
   clReleaseProgram(prgm);
   clReleaseCommandQueue(c_queue);
   clReleaseContext(ctx);

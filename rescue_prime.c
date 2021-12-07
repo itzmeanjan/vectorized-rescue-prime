@@ -605,14 +605,111 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
   return status;
 }
 
-// cl_int test_merge(cl_context ctx, cl_command_queue cq, cl_kernel hash_krnl,
-//                   cl_kernel merge_krnl) {
-//   cl_int status;
+// Merges two rescue prime hashes into single one by dispatching
+// https://github.com/itzmeanjan/vectorized-rescue-prime/blob/bf40c7e41431487633288b7f64ebd804245fd8eb/kernel.cl#L378
+// kernel (global_size_x x global_size_y)-many times
+//
+// It should produce same number of rescue prime digests, each of width 4,
+// while in input each was of width 8, because two input rescue prime digests to
+// be merged
+cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
+             uint64_t *input, uint64_t *output, size_t global_size_x,
+             size_t global_size_y, size_t local_size_x, size_t local_size_y) {
+  cl_int status;
 
-//   uint64_t in_arr[16] = {0ull, 1ull, 2ull,  3ull,  4ull,  5ull,  6ull,  7ull,
-//                          8ull, 9ull, 10ull, 11ull, 12ull, 13ull, 14ull,
-//                          15ull};
-//   uint64_t out_arr[16] = {0ull};
+  // input is supplied to kernel by this buffer
+  cl_mem in_buf = clCreateBuffer(
+      ctx, CL_MEM_READ_ONLY,
+      sizeof(cl_ulong) * 8 * global_size_x * global_size_y, NULL, &status);
 
-//   return status;
-// }
+  // Following three buffers will be storing rescue prime hash constants
+  cl_mem mds_buf =
+      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(MDS), NULL, &status);
+  cl_mem ark1_buf =
+      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK1), NULL, &status);
+  cl_mem ark2_buf =
+      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK2), NULL, &status);
+
+  // output to be placed here, after kernel completes hash computation
+  cl_mem out_buf = clCreateBuffer(
+      ctx, CL_MEM_WRITE_ONLY,
+      sizeof(cl_ulong) * 4 * global_size_x * global_size_y, NULL, &status);
+
+  // input being copied to device memory
+  cl_event evt_0;
+  status =
+      clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0,
+                           sizeof(uint64_t) * 8 * global_size_x * global_size_y,
+                           input, 0, NULL, &evt_0);
+
+  // scheduling rescue prime constant copying
+  cl_event evt_1;
+  status = clEnqueueWriteBuffer(cq, mds_buf, CL_FALSE, 0, sizeof(MDS), MDS, 0,
+                                NULL, &evt_1);
+  cl_event evt_2;
+  status = clEnqueueWriteBuffer(cq, ark1_buf, CL_FALSE, 0, sizeof(ARK1), ARK1,
+                                0, NULL, &evt_2);
+  cl_event evt_3;
+  status = clEnqueueWriteBuffer(cq, ark2_buf, CL_FALSE, 0, sizeof(ARK2), ARK2,
+                                0, NULL, &evt_3);
+
+  // setting kernel arguments for
+  // https://github.com/itzmeanjan/vectorized-rescue-prime/blob/bf40c7e41431487633288b7f64ebd804245fd8eb/kernel.cl#L320
+  status = clSetKernelArg(krnl, 0, sizeof(cl_mem), &in_buf);
+  status = clSetKernelArg(krnl, 1, sizeof(cl_mem), &mds_buf);
+  status = clSetKernelArg(krnl, 2, sizeof(cl_mem), &ark1_buf);
+  status = clSetKernelArg(krnl, 3, sizeof(cl_mem), &ark2_buf);
+  status = clSetKernelArg(krnl, 4, sizeof(cl_mem), &out_buf);
+
+  // preparing for creating dependency in compute execution graph
+  cl_event evts[] = {evt_0, evt_1, evt_2, evt_3};
+  size_t global_size[] = {global_size_x, global_size_y};
+  size_t local_size[] = {local_size_x, local_size_y};
+
+  // kernel being dispatched for execution on device
+  cl_event evt_4;
+  status = clEnqueueNDRangeKernel(cq, krnl, 2, NULL, global_size, local_size, 4,
+                                  evts, &evt_4);
+
+  // hash output being copied back to host
+  cl_event evt_5;
+  status =
+      clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0,
+                          sizeof(uint64_t) * 4 * global_size_x * global_size_y,
+                          output, 1, &evt_4, &evt_5);
+
+  status = clWaitForEvents(1, &evt_5);
+
+  clReleaseEvent(evt_0);
+  clReleaseEvent(evt_1);
+  clReleaseEvent(evt_2);
+  clReleaseEvent(evt_3);
+  clReleaseEvent(evt_4);
+  clReleaseEvent(evt_5);
+
+  clReleaseMemObject(in_buf);
+  clReleaseMemObject(mds_buf);
+  clReleaseMemObject(ark1_buf);
+  clReleaseMemObject(ark2_buf);
+  clReleaseMemObject(out_buf);
+
+  return status;
+}
+
+cl_int test_merge(cl_context ctx, cl_command_queue cq, cl_kernel hash_krnl,
+                  cl_kernel merge_krnl) {
+  cl_int status;
+
+  uint64_t in_arr[16] = {0ull, 1ull, 2ull,  3ull,  4ull,  5ull,  6ull,  7ull,
+                         8ull, 9ull, 10ull, 11ull, 12ull, 13ull, 14ull, 15ull};
+  uint64_t out_arr[16] = {0ull};
+
+  status = calculate_hash(ctx, cq, hash_krnl, in_arr + 0, 8, out_arr + 0, 1, 1,
+                          1, 1);
+  status = calculate_hash(ctx, cq, hash_krnl, in_arr + 8, 8, out_arr + 4, 1, 1,
+                          1, 1);
+  status = calculate_hash(ctx, cq, hash_krnl, in_arr + 0, 16, out_arr + 8, 1, 1,
+                          1, 1);
+
+  return status;
+}

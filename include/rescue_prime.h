@@ -46,3 +46,13 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
                       uint64_t *input, size_t input_width, uint64_t *output,
                       size_t global_size_x, size_t global_size_y,
                       size_t local_size_x, size_t local_size_y);
+
+// Read
+// https://github.com/itzmeanjan/vectorized-rescue-prime/blob/aa4262006018fba576b60a2337c80b4a8f6e1101/rescue_prime.c#L608-L614
+// if you've not yet
+cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
+             uint64_t *input, uint64_t *output, size_t global_size_x,
+             size_t global_size_y, size_t local_size_x, size_t local_size_y);
+
+cl_int test_merge(cl_context ctx, cl_command_queue cq, cl_kernel hash_krnl,
+                  cl_kernel merge_krnl);
