@@ -32,8 +32,12 @@ int main() {
     return EXIT_FAILURE;
   }
 
+  // enable profiling in queue, so that more precise execution time calculation
+  // can be done
+  cl_queue_properties props[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE,
+                                 0};
   cl_command_queue c_queue =
-      clCreateCommandQueueWithProperties(ctx, dev_id, NULL, &status);
+      clCreateCommandQueueWithProperties(ctx, dev_id, props, &status);
   if (status != CL_SUCCESS) {
     printf("failed to create command queue !\n");
     return EXIT_FAILURE;

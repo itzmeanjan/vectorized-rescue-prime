@@ -76,36 +76,33 @@ cl_int hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
   size_t local_size[] = {loc_sz_x, loc_sz_y};
   cl_event evts[] = {evt_0, evt_1, evt_2, evt_3, evt_4};
 
-  status = clWaitForEvents(5, evts);
-  check(status);
-
-  struct timeval start;
-  gettimeofday(&start, 0);
-
   cl_event evt_5;
-  status = clEnqueueNDRangeKernel(cq, krnl, 2, NULL, global_size, local_size, 0,
-                                  NULL, &evt_5);
+  status = clEnqueueNDRangeKernel(cq, krnl, 2, NULL, global_size, local_size, 5,
+                                  evts, &evt_5);
   check(status);
-
-  status = clWaitForEvents(1, &evt_5);
-  check(status);
-
-  struct timeval end;
-  gettimeofday(&end, 0);
-
-  double ts = (double)(end.tv_sec - start.tv_sec) * 1e6 +
-              (double)(end.tv_usec - start.tv_usec);
-
-  printf("%5lu x %5lu\t\t%10.2f ms\t\t%15.2f hashes/ sec\n", glb_sz_x, glb_sz_y,
-         ts * 1e-3, ((double)(glb_sz_x * glb_sz_y) / (double)ts) * 1e6);
 
   cl_event evt_6;
-  status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, out_size, out_arr, 0,
-                               NULL, &evt_6);
+  status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, out_size, out_arr, 1,
+                               &evt_5, &evt_6);
   check(status);
 
   status = clWaitForEvents(1, &evt_6);
   check(status);
+
+  cl_ulong start, end;
+  status = clGetEventProfilingInfo(evt_5, CL_PROFILING_COMMAND_START,
+                                   sizeof(cl_ulong), &start, NULL);
+  check(status);
+  status = clGetEventProfilingInfo(evt_5, CL_PROFILING_COMMAND_END,
+                                   sizeof(cl_ulong), &end, NULL);
+  check(status);
+
+  // kernel execution time in nanoseconds, obtained
+  // by enabling profiling in command queue
+  double ts = (double)(end - start);
+
+  printf("%5lu x %5lu\t\t%20.2f ms\t\t%15.2f hashes/ sec\n", glb_sz_x, glb_sz_y,
+         ts * 1e-6, ((double)(glb_sz_x * glb_sz_y) / (double)ts) * 1e9);
 
   status = clReleaseEvent(evt_0);
   check(status);

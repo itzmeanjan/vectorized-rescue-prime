@@ -2,7 +2,6 @@
 #define CL_TARGET_OPENCL_VERSION 220
 #include <CL/cl.h>
 #include <stdio.h>
-#include <sys/time.h>
 #include <utils.h>
 
 // Benchmark `hash_elements` kernel
