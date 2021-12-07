@@ -39,5 +39,10 @@ cl_int test_apply_mds(cl_context ctx, cl_command_queue cq, cl_kernel krnl);
 cl_int test_reduce_sum_vec2(cl_context ctx, cl_command_queue cq,
                             cl_kernel krnl);
 
+// Instead go and read
+// https://github.com/itzmeanjan/vectorized-rescue-prime/blob/27338a7d1b2de44442589515b27a263282796b6a/rescue_prime.c#L499-L509
+// if you've not yet
 cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
-                      uint64_t *input, size_t input_width, uint64_t *output);
+                      uint64_t *input, size_t input_width, uint64_t *output,
+                      size_t global_size_x, size_t global_size_y,
+                      size_t local_size_x, size_t local_size_y);

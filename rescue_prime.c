@@ -496,18 +496,28 @@ cl_int test_reduce_sum_vec2(cl_context ctx, cl_command_queue cq,
   return status;
 }
 
-// This function is used for computing rescue prime hash of input of
-// width N and produces output of width 4
+// This function is used for computing (global_size_x x global_size_y) rescue
+// prime hashes, each of input of width N, and produces same number of outputs,
+// each of width 4
 //
 // Note when I mentioned about width of N or 4, I mean input/ output
-// is will have those many 64-bit prime field elements
+// will have those many 64-bit prime field elements
+//
+// local_size_{x, y} denotes work-group size vertically/ horizontally
+//
+// I'm going to use this function for testing `merge` kernel
+// https://github.com/itzmeanjan/vectorized-rescue-prime/blob/bf40c7e41431487633288b7f64ebd804245fd8eb/kernel.cl#L378
 cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
-                      uint64_t *input, size_t input_width, uint64_t *output) {
+                      uint64_t *input, size_t input_width, uint64_t *output,
+                      size_t global_size_x, size_t global_size_y,
+                      size_t local_size_x, size_t local_size_y) {
   cl_int status;
 
   // input is supplied to kernel by this buffer
   cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY,
-                                 sizeof(cl_ulong) * input_width, NULL, &status);
+                                 sizeof(cl_ulong) * input_width *
+                                     global_size_x * global_size_y,
+                                 NULL, &status);
 
   // buffer for keeping width of input to hash_elements kernel, stored in
   // constant memory
@@ -523,14 +533,16 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
       clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK2), NULL, &status);
 
   // output to be placed here, after kernel completes hash computation
-  cl_mem out_buf = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, sizeof(cl_ulong) * 4,
-                                  NULL, &status);
+  cl_mem out_buf = clCreateBuffer(
+      ctx, CL_MEM_WRITE_ONLY,
+      sizeof(cl_ulong) * 4 * global_size_x * global_size_y, NULL, &status);
 
   // input being copied to device memory
   cl_event evt_0;
   status = clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0,
-                                sizeof(uint64_t) * input_width, input, 0, NULL,
-                                &evt_0);
+                                sizeof(uint64_t) * input_width * global_size_x *
+                                    global_size_y,
+                                input, 0, NULL, &evt_0);
   // input width being copied to device memory
   cl_event evt_1;
   status = clEnqueueWriteBuffer(cq, in_width_buf, CL_FALSE, 0, sizeof(size_t),
@@ -558,8 +570,8 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 
   // preparing for creating dependency in compute execution graph
   cl_event evts[] = {evt_0, evt_1, evt_2, evt_3, evt_4};
-  size_t global_size[] = {1, 1};
-  size_t local_size[] = {1, 1};
+  size_t global_size[] = {global_size_x, global_size_y};
+  size_t local_size[] = {local_size_x, local_size_y};
 
   // kernel being dispatched for execution on device
   cl_event evt_5;
@@ -568,8 +580,10 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 
   // hash output being copied back to host
   cl_event evt_6;
-  status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, sizeof(uint64_t) * 4,
-                               output, 1, &evt_5, &evt_6);
+  status =
+      clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0,
+                          sizeof(uint64_t) * 4 * global_size_x * global_size_y,
+                          output, 1, &evt_5, &evt_6);
 
   status = clWaitForEvents(1, &evt_6);
 
