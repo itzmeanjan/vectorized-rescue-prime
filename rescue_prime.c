@@ -508,7 +508,7 @@ cl_int test_reduce_sum_vec2(cl_context ctx, cl_command_queue cq,
 // I'm going to use this function for testing `merge` kernel
 // https://github.com/itzmeanjan/vectorized-rescue-prime/blob/bf40c7e41431487633288b7f64ebd804245fd8eb/kernel.cl#L378
 cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
-                      uint64_t *input, size_t input_width, uint64_t *output,
+                      cl_ulong *input, size_t input_width, cl_ulong *output,
                       size_t global_size_x, size_t global_size_y,
                       size_t local_size_x, size_t local_size_y) {
   cl_int status;
@@ -540,7 +540,7 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
   // input being copied to device memory
   cl_event evt_0;
   status = clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0,
-                                sizeof(uint64_t) * input_width * global_size_x *
+                                sizeof(cl_ulong) * input_width * global_size_x *
                                     global_size_y,
                                 input, 0, NULL, &evt_0);
   // input width being copied to device memory
@@ -582,7 +582,7 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
   cl_event evt_6;
   status =
       clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0,
-                          sizeof(uint64_t) * 4 * global_size_x * global_size_y,
+                          sizeof(cl_ulong) * 4 * global_size_x * global_size_y,
                           output, 1, &evt_5, &evt_6);
 
   status = clWaitForEvents(1, &evt_6);
@@ -613,7 +613,7 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 // while in input each was of width 8, because two input rescue prime digests to
 // be merged
 cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
-             uint64_t *input, uint64_t *output, size_t global_size_x,
+             cl_ulong *input, cl_ulong *output, size_t global_size_x,
              size_t global_size_y, size_t local_size_x, size_t local_size_y) {
   cl_int status;
 
@@ -639,7 +639,7 @@ cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
   cl_event evt_0;
   status =
       clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0,
-                           sizeof(uint64_t) * 8 * global_size_x * global_size_y,
+                           sizeof(cl_ulong) * 8 * global_size_x * global_size_y,
                            input, 0, NULL, &evt_0);
 
   // scheduling rescue prime constant copying
@@ -675,7 +675,7 @@ cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
   cl_event evt_5;
   status =
       clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0,
-                          sizeof(uint64_t) * 4 * global_size_x * global_size_y,
+                          sizeof(cl_ulong) * 4 * global_size_x * global_size_y,
                           output, 1, &evt_4, &evt_5);
 
   status = clWaitForEvents(1, &evt_5);
@@ -700,16 +700,53 @@ cl_int test_merge(cl_context ctx, cl_command_queue cq, cl_kernel hash_krnl,
                   cl_kernel merge_krnl) {
   cl_int status;
 
-  uint64_t in_arr[16] = {0ull, 1ull, 2ull,  3ull,  4ull,  5ull,  6ull,  7ull,
-                         8ull, 9ull, 10ull, 11ull, 12ull, 13ull, 14ull, 15ull};
-  uint64_t out_arr[16] = {0ull};
+  cl_ulong *in = malloc(sizeof(cl_ulong) * 16);
+  cl_ulong *out = malloc(sizeof(cl_ulong) * 16);
 
-  status = calculate_hash(ctx, cq, hash_krnl, in_arr + 0, 8, out_arr + 0, 1, 1,
-                          1, 1);
-  status = calculate_hash(ctx, cq, hash_krnl, in_arr + 8, 8, out_arr + 4, 1, 1,
-                          1, 1);
-  status = calculate_hash(ctx, cq, hash_krnl, in_arr + 0, 16, out_arr + 8, 1, 1,
-                          1, 1);
+  // prepare random 16 field elements
+  random_field_elements(in, 16);
+
+  // Hash 8 consequtive elements together, twice i.e. using two work-items
+  status = calculate_hash(ctx, cq, hash_krnl, in, 8, out, 1, 2, 1, 2);
+  // Then merge 8 consequtive elements together, such that they are
+  // interpreted to be two rescue prime hash digests concatenated
+  // one after another
+  //
+  // Do this thing twice i.e. using two work-items
+  status = merge(ctx, cq, merge_krnl, in, out + 8, 1, 2, 1, 2);
+
+  // it should produce 8 hash digests, each of width 4 field elements 👇
+  //
+  // out[0:4] produced from first work-item of `calculate_hash` function above
+  // out[4:8] produced from second work-item of `calculate_hash` function above
+  //
+  // out[8:12] produced from first work-item of `merge` function above
+  // out[12:16] produced from second work-item of `merge` function above
+  //
+  // This is how input and output are associated
+  //
+  // out[0:4] = hash_elements(in[0:8])
+  // out[4:8] = hash_elements(in[8:16])
+  //
+  // out[8:12] = merge(in[0:8])
+  // out[12:16] = merge(in[8:16])
+  //
+  // so followings should be passing !
+  assert(out[0] == out[8]);
+  assert(out[1] == out[9]);
+  assert(out[2] == out[10]);
+  assert(out[3] == out[11]);
+
+  assert(out[4] == out[12]);
+  assert(out[5] == out[13]);
+  assert(out[6] == out[14]);
+  assert(out[7] == out[15]);
+
+  printf("passed merge tests !\n");
+
+  // deallocate memory
+  free(in);
+  free(out);
 
   return status;
 }

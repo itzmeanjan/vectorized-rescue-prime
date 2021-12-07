@@ -43,7 +43,7 @@ cl_int test_reduce_sum_vec2(cl_context ctx, cl_command_queue cq,
 // https://github.com/itzmeanjan/vectorized-rescue-prime/blob/27338a7d1b2de44442589515b27a263282796b6a/rescue_prime.c#L499-L509
 // if you've not yet
 cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
-                      uint64_t *input, size_t input_width, uint64_t *output,
+                      cl_ulong *input, size_t input_width, cl_ulong *output,
                       size_t global_size_x, size_t global_size_y,
                       size_t local_size_x, size_t local_size_y);
 
@@ -51,8 +51,19 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 // https://github.com/itzmeanjan/vectorized-rescue-prime/blob/aa4262006018fba576b60a2337c80b4a8f6e1101/rescue_prime.c#L608-L614
 // if you've not yet
 cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
-             uint64_t *input, uint64_t *output, size_t global_size_x,
+             cl_ulong *input, cl_ulong *output, size_t global_size_x,
              size_t global_size_y, size_t local_size_x, size_t local_size_y);
 
+// Tests against following described scenario holds
+//
+// A = [0, 1, 2, 3, 4, 5, 6, 7]
+//
+// h = hash_elements(A)
+// m = merge(A)
+//
+// assert h == m ; both h, m of width 4
+//
+// kernels are present here
+// https://github.com/itzmeanjan/vectorized-rescue-prime/blob/bf40c7e41431487633288b7f64ebd804245fd8eb/kernel.cl#L307-L399
 cl_int test_merge(cl_context ctx, cl_command_queue cq, cl_kernel hash_krnl,
                   cl_kernel merge_krnl);
