@@ -374,3 +374,25 @@ __kernel void hash_elements(__global ulong *in, __constant size_t *size,
 
   vstore4(state.s0123, lin_idx, out);
 }
+
+__kernel void merge(__global ulong *in, __global ulong16 mds[12],
+                    __global ulong16 ark1[7], __global ulong16 ark2[7],
+                    __global ulong *out) {
+  const size_t r_idx = get_global_id(0);
+  const size_t c_idx = get_global_id(1);
+  const size_t width = get_global_size(1);
+  const size_t lin_idx = r_idx * width + c_idx;
+
+  ulong16 state = (ulong16)(0ul);
+  // read two digests, which are to be merged now
+  state.s01234567 = vload8(lin_idx, in);
+  // set length of input to be RATE_WIDTH (=8), because
+  // first digest width (= 4) + second digest width (= 4)
+  state.sb = RATE_WIDTH;
+
+  // merge two rescue digests into single digest
+  // by applying rescue permutation one time
+  state = apply_rescue_permutation(state, mds, ark1, ark2);
+
+  vstore4(state.s0123, lin_idx, out);
+}
