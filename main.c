@@ -119,6 +119,21 @@ int main() {
   status = test_merge(ctx, c_queue, krnl_5, krnl_6);
   check(status);
 
+  cl_kernel krnl_7 = clCreateKernel(prgm, "merge", &status);
+  if (status != CL_SUCCESS) {
+    printf("failed to create merge kernel !\n");
+    return EXIT_FAILURE;
+  }
+
+  cl_kernel krnl_8 = clCreateKernel(prgm, "build_merkle_tree_tip_seq", &status);
+  if (status != CL_SUCCESS) {
+    printf("failed to create merge kernel !\n");
+    return EXIT_FAILURE;
+  }
+
+  status = test_build_merkle_nodes(ctx, c_queue, krnl_6, krnl_7, krnl_8);
+  check(status);
+
   printf("\nRescue Prime Hash Benchmark\n\n");
   for (size_t i = 7; i < 11; i++) {
     status =
@@ -139,6 +154,8 @@ int main() {
   clReleaseKernel(krnl_4);
   clReleaseKernel(krnl_5);
   clReleaseKernel(krnl_6);
+  clReleaseKernel(krnl_7);
+  clReleaseKernel(krnl_8);
   clReleaseProgram(prgm);
   clReleaseCommandQueue(c_queue);
   clReleaseContext(ctx);
