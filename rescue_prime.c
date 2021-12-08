@@ -16,122 +16,16 @@ cl_int bench_hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 
   random_field_elements(in_arr, in_size / sizeof(cl_ulong));
 
-  cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, in_size, NULL, &status);
-  check(status);
-  cl_mem in_size_buf =
-      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(size_t), NULL, &status);
-  check(status);
-  cl_mem mds_buf =
-      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(MDS), NULL, &status);
-  check(status);
-  cl_mem ark1_buf =
-      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK1), NULL, &status);
-  check(status);
-  cl_mem ark2_buf =
-      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK2), NULL, &status);
-  check(status);
-  cl_mem out_buf =
-      clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, out_size, NULL, &status);
-  check(status);
-
-  status = clSetKernelArg(krnl, 0, sizeof(cl_mem), &in_buf);
-  check(status);
-  status = clSetKernelArg(krnl, 1, sizeof(cl_mem), &in_size_buf);
-  check(status);
-  status = clSetKernelArg(krnl, 2, sizeof(cl_mem), &mds_buf);
-  check(status);
-  status = clSetKernelArg(krnl, 3, sizeof(cl_mem), &ark1_buf);
-  check(status);
-  status = clSetKernelArg(krnl, 4, sizeof(cl_mem), &ark2_buf);
-  check(status);
-  status = clSetKernelArg(krnl, 5, sizeof(cl_mem), &out_buf);
-  check(status);
-
-  cl_event evt_0;
-  status = clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0, in_size, in_arr, 0,
-                                NULL, &evt_0);
-  check(status);
-
-  cl_event evt_1;
-  status = clEnqueueWriteBuffer(cq, in_size_buf, CL_FALSE, 0, sizeof(size_t),
-                                &in_width, 0, NULL, &evt_1);
-  check(status);
-
-  cl_event evt_2;
-  status = clEnqueueWriteBuffer(cq, mds_buf, CL_FALSE, 0, sizeof(MDS), MDS, 0,
-                                NULL, &evt_2);
-  check(status);
-
-  cl_event evt_3;
-  status = clEnqueueWriteBuffer(cq, ark1_buf, CL_FALSE, 0, sizeof(ARK1), ARK1,
-                                0, NULL, &evt_3);
-  check(status);
-
-  cl_event evt_4;
-  status = clEnqueueWriteBuffer(cq, ark2_buf, CL_FALSE, 0, sizeof(ARK2), ARK2,
-                                0, NULL, &evt_4);
-  check(status);
-
-  size_t global_size[] = {glb_sz_x, glb_sz_y};
-  size_t local_size[] = {loc_sz_x, loc_sz_y};
-  cl_event evts[] = {evt_0, evt_1, evt_2, evt_3, evt_4};
-
-  cl_event evt_5;
-  status = clEnqueueNDRangeKernel(cq, krnl, 2, NULL, global_size, local_size, 5,
-                                  evts, &evt_5);
-  check(status);
-
-  cl_event evt_6;
-  status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, out_size, out_arr, 1,
-                               &evt_5, &evt_6);
-  check(status);
-
-  status = clWaitForEvents(1, &evt_6);
-  check(status);
-
-  cl_ulong start, end;
-  status = clGetEventProfilingInfo(evt_5, CL_PROFILING_COMMAND_START,
-                                   sizeof(cl_ulong), &start, NULL);
-  check(status);
-  status = clGetEventProfilingInfo(evt_5, CL_PROFILING_COMMAND_END,
-                                   sizeof(cl_ulong), &end, NULL);
-  check(status);
-
   // kernel execution time in nanoseconds, obtained
   // by enabling profiling in command queue
-  double ts = (double)(end - start);
+  cl_ulong ts;
+  status = hash_elements(ctx, cq, krnl, in_arr, in_width, out_arr, glb_sz_x,
+                         glb_sz_y, loc_sz_x, loc_sz_y, &ts);
+  check(status);
 
   printf("%15s\t\t%5lu x %5lu\t\t%20.2f ms\t\t%15.2f hashes/ sec\n",
-         "hash_elements", glb_sz_x, glb_sz_y, ts * 1e-6,
+         "hash_elements", glb_sz_x, glb_sz_y, (double)ts * 1e-6,
          ((double)(glb_sz_x * glb_sz_y) / (double)ts) * 1e9);
-
-  status = clReleaseEvent(evt_0);
-  check(status);
-  status = clReleaseEvent(evt_1);
-  check(status);
-  status = clReleaseEvent(evt_2);
-  check(status);
-  status = clReleaseEvent(evt_3);
-  check(status);
-  status = clReleaseEvent(evt_4);
-  check(status);
-  status = clReleaseEvent(evt_5);
-  check(status);
-  status = clReleaseEvent(evt_6);
-  check(status);
-
-  status = clReleaseMemObject(in_buf);
-  check(status);
-  status = clReleaseMemObject(in_size_buf);
-  check(status);
-  status = clReleaseMemObject(mds_buf);
-  check(status);
-  status = clReleaseMemObject(ark1_buf);
-  check(status);
-  status = clReleaseMemObject(ark2_buf);
-  check(status);
-  status = clReleaseMemObject(out_buf);
-  check(status);
 
   free(in_arr);
   free(out_arr);
@@ -706,9 +600,9 @@ cl_int test_reduce_sum_vec2(cl_context ctx, cl_command_queue cq,
   return status;
 }
 
-// This function is used for computing (global_size_x x global_size_y) rescue
-// prime hashes, each of input of width N, and produces same number of outputs,
-// each of width 4
+// This function is used for computing (global_size_x x global_size_y)-many
+// rescue prime hashes, each on equal sized input of width N, and produces same
+// number of outputs, each of width 4
 //
 // Note when I mentioned about width of N or 4, I mean input/ output
 // will have those many 64-bit prime field elements
@@ -717,17 +611,24 @@ cl_int test_reduce_sum_vec2(cl_context ctx, cl_command_queue cq,
 //
 // I'm going to use this function for testing `merge` kernel
 // https://github.com/itzmeanjan/vectorized-rescue-prime/blob/bf40c7e41431487633288b7f64ebd804245fd8eb/kernel.cl#L378
-cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
-                      cl_ulong *input, size_t input_width, cl_ulong *output,
-                      size_t global_size_x, size_t global_size_y,
-                      size_t local_size_x, size_t local_size_y) {
+//
+// Now I've also started using this generic function for benchmarking
+// `hash_elements` kernel
+cl_int hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
+                     cl_ulong *input, const size_t input_width,
+                     cl_ulong *output, size_t global_size_x,
+                     size_t global_size_y, size_t local_size_x,
+                     size_t local_size_y, cl_ulong *ts) {
   cl_int status;
 
+  const size_t output_width = 4ul;
+  const size_t in_size =
+      global_size_x * global_size_y * input_width * sizeof(cl_ulong);
+  const size_t out_size =
+      global_size_x * global_size_y * output_width * sizeof(cl_ulong);
+
   // input is supplied to kernel by this buffer
-  cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY,
-                                 sizeof(cl_ulong) * input_width *
-                                     global_size_x * global_size_y,
-                                 NULL, &status);
+  cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, in_size, NULL, &status);
 
   // buffer for keeping width of input to hash_elements kernel, stored in
   // constant memory
@@ -743,16 +644,13 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
       clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK2), NULL, &status);
 
   // output to be placed here, after kernel completes hash computation
-  cl_mem out_buf = clCreateBuffer(
-      ctx, CL_MEM_WRITE_ONLY,
-      sizeof(cl_ulong) * 4 * global_size_x * global_size_y, NULL, &status);
+  cl_mem out_buf =
+      clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, out_size, NULL, &status);
 
   // input being copied to device memory
   cl_event evt_0;
-  status = clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0,
-                                sizeof(cl_ulong) * input_width * global_size_x *
-                                    global_size_y,
-                                input, 0, NULL, &evt_0);
+  status = clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0, in_size, input, 0,
+                                NULL, &evt_0);
   // input width being copied to device memory
   cl_event evt_1;
   status = clEnqueueWriteBuffer(cq, in_width_buf, CL_FALSE, 0, sizeof(size_t),
@@ -790,12 +688,23 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 
   // hash output being copied back to host
   cl_event evt_6;
-  status =
-      clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0,
-                          sizeof(cl_ulong) * 4 * global_size_x * global_size_y,
-                          output, 1, &evt_5, &evt_6);
+  status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, out_size, output, 1,
+                               &evt_5, &evt_6);
 
   status = clWaitForEvents(1, &evt_6);
+
+  // figure out kernel execution time only when asked to
+  if (ts != NULL) {
+    cl_ulong start, end;
+    status = clGetEventProfilingInfo(evt_5, CL_PROFILING_COMMAND_START,
+                                     sizeof(cl_ulong), &start, NULL);
+    check(status);
+    status = clGetEventProfilingInfo(evt_5, CL_PROFILING_COMMAND_END,
+                                     sizeof(cl_ulong), &end, NULL);
+    check(status);
+
+    *ts = (end - start);
+  }
 
   clReleaseEvent(evt_0);
   clReleaseEvent(evt_1);
@@ -932,7 +841,7 @@ cl_int test_merge(cl_context ctx, cl_command_queue cq, cl_kernel hash_krnl,
   random_field_elements(in, 16);
 
   // Hash 8 consequtive elements together, twice i.e. using two work-items
-  status = calculate_hash(ctx, cq, hash_krnl, in, 8, out, 1, 2, 1, 2);
+  status = hash_elements(ctx, cq, hash_krnl, in, 8, out, 1, 2, 1, 2, NULL);
   // Then merge 8 consequtive elements together, such that they are
   // interpreted to be two rescue prime hash digests concatenated
   // one after another

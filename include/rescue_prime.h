@@ -48,10 +48,11 @@ cl_int test_reduce_sum_vec2(cl_context ctx, cl_command_queue cq,
 // Instead go and read
 // https://github.com/itzmeanjan/vectorized-rescue-prime/blob/27338a7d1b2de44442589515b27a263282796b6a/rescue_prime.c#L499-L509
 // if you've not yet
-cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
-                      cl_ulong *input, size_t input_width, cl_ulong *output,
-                      size_t global_size_x, size_t global_size_y,
-                      size_t local_size_x, size_t local_size_y);
+cl_int hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
+                     cl_ulong *input, const size_t input_width,
+                     cl_ulong *output, size_t global_size_x,
+                     size_t global_size_y, size_t local_size_x,
+                     size_t local_size_y, cl_ulong *ts);
 
 // Read
 // https://github.com/itzmeanjan/vectorized-rescue-prime/blob/aa4262006018fba576b60a2337c80b4a8f6e1101/rescue_prime.c#L608-L614
