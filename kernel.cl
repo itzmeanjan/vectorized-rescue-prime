@@ -425,3 +425,34 @@ __kernel void merge(__global ulong *in, __global ulong16 mds[12],
 
   vstore4(state.s0123, lin_idx, out);
 }
+
+// Doesn't matter how many work-items you want to spawn for this kernel, in a 3D
+// compute index space only work-item with global index 0 will do something
+// useful
+//
+// You may ask what is the reason behind writing a kernel for that then ?
+//
+// Well, I want to avoid cost of device to host data transfer, when next
+// processing on computed merkle tree nodes to be done on device itself.
+// Otherwise following function can be rewritten in host and sequentially
+// executed (as it's done below) while respecting data dependency. And due to
+// presence of some complicated data access patterns, I can't compute tip
+// of merkle tree in parallel.
+//
+// This function takes inspiration from
+// https://github.com/novifinancial/winterfell/blob/377e916c47fab3d9fa173b2f6123c7b713ffce03/crypto/src/merkle/concurrent.rs#L64-L67
+__kernel void build_merkle_tree_tip_seq(__global ulong *in_out_buf,
+                                        __constant size_t *num_subtrees,
+                                        __global ulong16 mds[12],
+                                        __global ulong16 ark1[7],
+                                        __global ulong16 ark2[7]) {
+  if (get_global_id(0) == 0 && get_global_id(1) == 0 && get_global_id(2) == 0) {
+    for (size_t i = num_subtrees[0] - 1; i >= 0; i--) {
+      ulong16 state = (ulong16)(0ul);
+      state.s01234567 = vload8(i, in_out_buf);
+      state.sb = RATE_WIDTH;
+      state = apply_rescue_permutation(state, mds, ark1, ark2);
+      vstore4(state.s0123, i, in_out_buf);
+    }
+  }
+}
