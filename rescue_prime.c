@@ -71,6 +71,34 @@ cl_int bench_merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
   return CL_SUCCESS;
 }
 
+cl_int bench_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
+                                cl_kernel merge_krnl, cl_kernel tip_krnl,
+                                size_t global_size, size_t local_size) {
+  cl_int status;
+
+  const size_t io_width = 4;
+  const size_t in_size = global_size * io_width * sizeof(cl_ulong);
+  const size_t out_size = global_size * io_width * sizeof(cl_ulong);
+
+  cl_ulong *in_arr = malloc(in_size);
+  cl_ulong *out_arr = malloc(out_size);
+
+  random_field_elements(in_arr, in_size / sizeof(cl_ulong));
+
+  cl_ulong ts;
+  status = build_merkle_nodes(ctx, cq, merge_krnl, tip_krnl, in_arr, out_arr,
+                              global_size, local_size, &ts);
+  check(status);
+
+  printf("%15s\t\t%10lu\t\t%20.2f ms\n", "merklize", global_size,
+         (double)ts * 1e-6);
+
+  free(in_arr);
+  free(out_arr);
+
+  return CL_SUCCESS;
+}
+
 cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
                           cl_kernel merge_krnl, cl_kernel tip_krnl,
                           cl_ulong *in, cl_ulong *out, const size_t leave_count,

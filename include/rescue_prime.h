@@ -20,6 +20,12 @@ cl_int bench_merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
                    size_t global_size_x, size_t global_size_y,
                    size_t local_size_x, size_t local_size_y);
 
+// Benchmarks merkle tree intermediate node construction function, when
+// N-many leaves are provided
+cl_int bench_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
+                                cl_kernel merge_krnl, cl_kernel tip_krnl,
+                                size_t global_size, size_t local_size);
+
 // Adapted from
 // https://github.com/itzmeanjan/ff-gpu/blob/ad6947dce3033775822e7a790e5b793a8034fec2/tests/test_rescue_prime.cpp#L14-L33
 cl_int test_apply_sbox(cl_context ctx, cl_command_queue cq, cl_kernel krnl);
@@ -63,13 +69,12 @@ cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
              cl_ulong *ts);
 
 cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
-                          cl_kernel merge_krnl,
-                          cl_kernel tip_krnl, cl_ulong *in, cl_ulong *out,
-                          const size_t leave_count, const size_t wg_size, cl_ulong *ts);
+                          cl_kernel merge_krnl, cl_kernel tip_krnl,
+                          cl_ulong *in, cl_ulong *out, const size_t leave_count,
+                          const size_t wg_size, cl_ulong *ts);
 
 cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
-                               cl_kernel merge_krnl,
-                               cl_kernel tip_kernel);
+                               cl_kernel merge_krnl, cl_kernel tip_kernel);
 
 // Tests against following described scenario holds
 //
