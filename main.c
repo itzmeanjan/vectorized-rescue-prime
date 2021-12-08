@@ -139,6 +139,12 @@ int main() {
     status = bench_merge(ctx, c_queue, krnl_6, 1ul << i, 1ul << i, 1, 128);
     check(status);
   }
+  printf("\nRescue Prime Merkle Tree Benchmark\n\n");
+  for (size_t i = 20; i < 25; i++) {
+    status =
+        bench_build_merkle_nodes(ctx, c_queue, krnl_6, krnl_7, 1ul << i, 128);
+    check(status);
+  }
 
   // releasing all OpenCL resources !
   clReleaseKernel(krnl_0);
