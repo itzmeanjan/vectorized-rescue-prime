@@ -292,22 +292,129 @@ cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   const size_t N = 16;
   // because each rescue prime digest consists of 4 field elements
   const size_t io_width = 4;
+  // in terms of bytes
   const size_t io_size = N * io_width * sizeof(cl_long);
 
+  // to be randomly generated and interpreted such that N-many rescue prime
+  // hash digests are concatenated one after another
   cl_ulong *in = malloc(io_size);
-  cl_ulong *out = malloc(io_size);
+  // output to be computed by function `build_merkle_tree`, this is what I'm
+  // testing
+  cl_ulong *out_0 = malloc(io_size);
+  // this output it going to be computed manually by invoking `merge` function
+  // step by step on a pair of merkle tree nodes
+  cl_ulong *out_1 = malloc(io_size);
 
+  // set all bytes to zero first, just to ensure first 4 elements
+  // of `out_0` are not touched by kernel(s) when `build_merkle_nodes`
+  // function is invoked, with `out_0` for storing intermediate nodes
+  // of merkle tree
   memset(in, 0, io_size);
-  memset(out, 0, io_size);
+  memset(out_0, 0, io_size);
+  memset(out_1, 0, io_size);
 
+  // randomly generated N * 4-many prime field elements
+  // to be interpreted as N-many rescue prime hash digests
   random_field_elements(in, io_size / sizeof(cl_ulong));
 
+  // compute merkle tree intermediate nodes, to be asserted in next few steps
   status = build_merkle_nodes(ctx, cq, merge_krnl_0, merge_krnl_1, tip_kernel,
-                              in, out, N, 1);
+                              in, out_0, N, 1);
   check(status);
 
+  // Assume A = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  // to be a set of merkle tree leaves, each of width 4-prime field elements
+  //
+  // so A must have 16 * 4 = 64 prime field elements
+  //
+  // B = [0; 16], result array for storing all intermediate nodes of tree
+  // such that
+  // - B[0] == zeroed by `memset`
+  // - B[1] == root
+  // - B[2], B[3] == children of B[1]
+  // - B[4], B[5] == children of B[2]
+  // - B[6], B[7] == children of B[3]
+  // ...
+  //
+  // B[15] = merge(A[14], A[15])
+  // B[14] = merge(A[12], A[13])
+  // ...
+  // B[8] = merge(A[0], A[1])
+  //
+  // For N-many leaves N/2 -many intermediate nodes are computed in this step
+  for (size_t j = 1; j <= (N >> 1); j++) {
+    status = merge(ctx, cq, merge_krnl_0, in + (N - 2 * j) * io_width,
+                   out_1 + (N - j) * io_width, 1, 1, 1, 1, NULL);
+
+    for (size_t i = 0; i < io_width; i++) {
+      assert(*(out_1 + (N - j) * io_width + i) ==
+             *(out_0 + (N - j) * io_width + i));
+    }
+  }
+
+  // As soon as level above leaves are computed, I can move to next level of
+  // tree
+  //
+  // In this step I'll compute N/4 -many intermediate nodes, living just above
+  // previous level of nodes
+  //
+  // B[7] = merge(B[14], B[15])
+  // B[6] = merge(B[12], B[13])
+  // B[5] = merge(B[10], B[11])
+  // B[4] = merge(B[8], B[9])
+  for (size_t j = 1; j <= (N >> 2); j++) {
+    status = merge(ctx, cq, merge_krnl_0, out_1 + (N - 2 * j) * io_width,
+                   out_1 + ((N >> 1) - j) * io_width, 1, 1, 1, 1, NULL);
+
+    for (size_t i = 0; i < io_width; i++) {
+      assert(*(out_1 + ((N >> 1) - j) * io_width + i) ==
+             *(out_0 + ((N >> 1) - j) * io_width + i));
+    }
+  }
+
+  // In next level I'll compute N/8 -many intermediates
+  //
+  // B[3] = merge(B[6], B[7])
+  // B[2] = merge(B[4], B[5])
+  for (size_t j = 1; j <= (N >> 3); j++) {
+    status = merge(ctx, cq, merge_krnl_0, out_1 + ((N >> 1) - 2 * j) * io_width,
+                   out_1 + ((N >> 2) - j) * io_width, 1, 1, 1, 1, NULL);
+
+    for (size_t i = 0; i < io_width; i++) {
+      assert(*(out_1 + ((N >> 2) - j) * io_width + i) ==
+             *(out_0 + ((N >> 2) - j) * io_width + i));
+    }
+  }
+
+  // And this is the root of merkle tree !
+  //
+  // Only one node to be computed
+  //
+  // B[1] = merge(B[2], B[3])
+  for (size_t j = 1; j <= (N >> 4); j++) {
+    status = merge(ctx, cq, merge_krnl_0, out_1 + ((N >> 2) - 2 * j) * io_width,
+                   out_1 + ((N >> 3) - j) * io_width, 1, 1, 1, 1, NULL);
+
+    for (size_t i = 0; i < io_width; i++) {
+      assert(*(out_1 + ((N >> 3) - j) * io_width + i) ==
+             *(out_0 + ((N >> 3) - j) * io_width + i));
+    }
+  }
+
+  // just to ensure B[0] was never touched by kernels dispatched in
+  // `build_merkle_nodes` function
+  //
+  // I'm certain that I, myself, have never touched first four field elements
+  // `out_1`, so they should be zeroed, as I did at very beginning of this
+  // function using `memset`
+  for (size_t j = 0; j < io_width; j++) {
+    assert(*(out_0 + j) == *(out_1 + j));
+  }
+
+  // deallocate resources
   free(in);
-  free(out);
+  free(out_0);
+  free(out_1);
 
   return CL_SUCCESS;
 }
