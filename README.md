@@ -81,6 +81,7 @@ Kernel <test_apply_inv_sbox> was not vectorized
 Kernel <test_apply_rescue_permutation> was not vectorized
 Kernel <hash_elements> was not vectorized
 Kernel <merge> was not vectorized
+Kernel <build_merkle_tree_tip_seq> was not vectorized
 Done.
 
 passed apply_sbox tests !
@@ -92,17 +93,17 @@ passed merge tests !
 
 Rescue Prime Hash Benchmark
 
-  hash_elements		  128 x   128		              341.79 ms		       47935.40 hashes/ sec
-  hash_elements		  256 x   256		             1400.54 ms		       46793.30 hashes/ sec
-  hash_elements		  512 x   512		             5462.69 ms		       47988.12 hashes/ sec
-  hash_elements		 1024 x  1024		            21994.77 ms		       47673.89 hashes/ sec
+  hash_elements		  128 x   128		              341.98 ms		       47909.35 hashes/ sec
+  hash_elements		  256 x   256		             1367.19 ms		       47934.68 hashes/ sec
+  hash_elements		  512 x   512		             5458.55 ms		       48024.44 hashes/ sec
+  hash_elements		 1024 x  1024		            21847.35 ms		       47995.57 hashes/ sec
 
 Rescue Prime Merge Benchmark
 
-          merge		  128 x   128		                0.10 ms		   157132033.49 merges/ sec
-          merge		  256 x   256		                0.28 ms		   230658229.10 merges/ sec
-          merge		  512 x   512		                2.32 ms		   113080545.90 merges/ sec
-          merge		 1024 x  1024		                9.35 ms		   112100419.30 merges/ sec
+          merge		  128 x   128		              341.66 ms		       47953.65 merges/ sec
+          merge		  256 x   256		             1365.31 ms		       48000.99 merges/ sec
+          merge		  512 x   512		             5456.02 ms		       48046.74 merges/ sec
+          merge		 1024 x  1024		            21828.93 ms		       48036.07 merges/ sec
 ```
 
 ### Nvidia Tesla V100 GPU with OpenCL
@@ -127,21 +128,21 @@ passed merge tests !
 
 Rescue Prime Hash Benchmark
 
-  hash_elements		  128 x   128		                2.05 ms		     7996002.00 hashes/ sec
-  hash_elements		  256 x   256		                7.61 ms		     8610251.58 hashes/ sec
-  hash_elements		  512 x   512		               27.88 ms		     9404158.40 hashes/ sec
-  hash_elements		 1024 x  1024		              110.88 ms		     9456526.76 hashes/ sec
-  hash_elements		 2048 x  2048		              407.84 ms		    10284299.62 hashes/ sec
-  hash_elements		 4096 x  4096		             1619.96 ms		    10356556.57 hashes/ sec
-  hash_elements		 8192 x  8192		             6476.92 ms		    10361229.62 hashes/ sec
+  hash_elements		  128 x   128		                2.06 ms		     7960199.00 hashes/ sec
+  hash_elements		  256 x   256		                7.62 ms		     8602150.54 hashes/ sec
+  hash_elements		  512 x   512		               28.00 ms		     9361857.74 hashes/ sec
+  hash_elements		 1024 x  1024		              110.08 ms		     9525758.62 hashes/ sec
+  hash_elements		 2048 x  2048		              409.15 ms		    10251148.12 hashes/ sec
+  hash_elements		 4096 x  4096		             1632.56 ms		    10276623.32 hashes/ sec
+  hash_elements		 8192 x  8192		             6501.65 ms		    10321819.78 hashes/ sec
 
 Rescue Prime Merge Benchmark
 
-          merge		  128 x   128		                0.04 ms		   396284829.72 merges/ sec
-          merge		  256 x   256		                0.17 ms		   385760030.14 merges/ sec
-          merge		  512 x   512		                0.88 ms		   296908412.16 merges/ sec
-          merge		 1024 x  1024		               23.87 ms		    43924461.94 merges/ sec
-          merge		 2048 x  2048		              114.61 ms		    36595004.99 merges/ sec
-          merge		 4096 x  4096		              411.55 ms		    40766144.24 merges/ sec
-          merge		 8192 x  8192		             1620.33 ms		    41416831.70 merges/ sec
+          merge		  128 x   128		                1.94 ms		     8461131.68 merges/ sec
+          merge		  256 x   256		                7.18 ms		     9128512.34 merges/ sec
+          merge		  512 x   512		               26.41 ms		     9926712.94 merges/ sec
+          merge		 1024 x  1024		              105.29 ms		     9958473.94 merges/ sec
+          merge		 2048 x  2048		              419.68 ms		     9994046.52 merges/ sec
+          merge		 4096 x  4096		             1678.35 ms		     9996266.04 merges/ sec
+          merge		 8192 x  8192		             6711.64 ms		     9998883.18 merges/ sec
 ```
