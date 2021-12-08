@@ -58,7 +58,8 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 // if you've not yet
 cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
              cl_ulong *input, cl_ulong *output, size_t global_size_x,
-             size_t global_size_y, size_t local_size_x, size_t local_size_y);
+             size_t global_size_y, size_t local_size_x, size_t local_size_y,
+             cl_ulong *ts);
 
 // Tests against following described scenario holds
 //

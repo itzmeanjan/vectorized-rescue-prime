@@ -156,112 +156,20 @@ cl_int bench_merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 
   random_field_elements(in_arr, in_size / sizeof(cl_ulong));
 
-  cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, in_size, NULL, &status);
-  check(status);
-  cl_mem mds_buf =
-      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(MDS), NULL, &status);
-  check(status);
-  cl_mem ark1_buf =
-      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK1), NULL, &status);
-  check(status);
-  cl_mem ark2_buf =
-      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK2), NULL, &status);
-  check(status);
-  cl_mem out_buf =
-      clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, out_size, NULL, &status);
-  check(status);
-
-  status = clSetKernelArg(krnl, 0, sizeof(cl_mem), &in_buf);
-  check(status);
-  status = clSetKernelArg(krnl, 1, sizeof(cl_mem), &mds_buf);
-  check(status);
-  status = clSetKernelArg(krnl, 2, sizeof(cl_mem), &ark1_buf);
-  check(status);
-  status = clSetKernelArg(krnl, 3, sizeof(cl_mem), &ark2_buf);
-  check(status);
-  status = clSetKernelArg(krnl, 4, sizeof(cl_mem), &out_buf);
-  check(status);
-
-  cl_event evt_0;
-  status = clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0, in_size, in_arr, 0,
-                                NULL, &evt_0);
-  check(status);
-
-  cl_event evt_1;
-  status = clEnqueueWriteBuffer(cq, mds_buf, CL_FALSE, 0, sizeof(MDS), MDS, 0,
-                                NULL, &evt_1);
-  check(status);
-
-  cl_event evt_2;
-  status = clEnqueueWriteBuffer(cq, ark1_buf, CL_FALSE, 0, sizeof(ARK1), ARK1,
-                                0, NULL, &evt_2);
-  check(status);
-
-  cl_event evt_3;
-  status = clEnqueueWriteBuffer(cq, ark2_buf, CL_FALSE, 0, sizeof(ARK2), ARK2,
-                                0, NULL, &evt_3);
-  check(status);
-
-  size_t global_size[] = {global_size_x, global_size_y};
-  size_t local_size[] = {local_size_x, local_size_y};
-  cl_event evts[] = {evt_0, evt_1, evt_2, evt_3};
-
-  cl_event evt_4;
-  status = clEnqueueNDRangeKernel(cq, krnl, 2, NULL, global_size, local_size, 4,
-                                  evts, &evt_4);
-  check(status);
-
-  cl_event evt_5;
-  status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, out_size, out_arr, 1,
-                               &evt_4, &evt_5);
-  check(status);
-
-  status = clWaitForEvents(1, &evt_5);
-  check(status);
-
-  cl_ulong start, end;
-  status = clGetEventProfilingInfo(evt_5, CL_PROFILING_COMMAND_START,
-                                   sizeof(cl_ulong), &start, NULL);
-  check(status);
-  status = clGetEventProfilingInfo(evt_5, CL_PROFILING_COMMAND_END,
-                                   sizeof(cl_ulong), &end, NULL);
-  check(status);
-
   // kernel execution time in nanoseconds, obtained
   // by enabling profiling in command queue
   //
   // make sure
   // https://github.com/itzmeanjan/vectorized-rescue-prime/blob/54df2cd08de2e3d56c7a6e0202981c489ff0ee63/main.c#L35-L44
   // stays as it's
-  double ts = (double)(end - start);
+  cl_ulong ts;
+  status = merge(ctx, cq, krnl, in_arr, out_arr, global_size_x, global_size_y,
+                 local_size_x, local_size_y, &ts);
+  check(status);
 
   printf("%15s\t\t%5lu x %5lu\t\t%20.2f ms\t\t%15.2f merges/ sec\n", "merge",
-         global_size_x, global_size_y, ts * 1e-6,
+         global_size_x, global_size_y, (double)ts * 1e-6,
          ((double)(global_size_x * global_size_y) / (double)ts) * 1e9);
-
-  status = clReleaseEvent(evt_0);
-  check(status);
-  status = clReleaseEvent(evt_1);
-  check(status);
-  status = clReleaseEvent(evt_2);
-  check(status);
-  status = clReleaseEvent(evt_3);
-  check(status);
-  status = clReleaseEvent(evt_4);
-  check(status);
-  status = clReleaseEvent(evt_5);
-  check(status);
-
-  status = clReleaseMemObject(in_buf);
-  check(status);
-  status = clReleaseMemObject(mds_buf);
-  check(status);
-  status = clReleaseMemObject(ark1_buf);
-  check(status);
-  status = clReleaseMemObject(ark2_buf);
-  check(status);
-  status = clReleaseMemObject(out_buf);
-  check(status);
 
   free(in_arr);
   free(out_arr);
@@ -274,7 +182,7 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
                           cl_kernel tip_krnl, cl_ulong *in, cl_ulong *out,
                           const size_t leave_count, const size_t wg_size) {
   // leave count of merkle tree should be power of 2
-  assert((leave_count) & (leave_count - 1ul) == 0);
+  assert((leave_count & (leave_count - 1ul)) == 0);
   // intermediate nodes of tree those can be computed in parallel
   //
   // to be specific
@@ -404,7 +312,7 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
       clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(size_t), NULL, &status);
   check(status);
 
-  status = clSetKernelArg(tip_krnl, 0, sizeof(cl_mem), &in_buf_0);
+  status = clSetKernelArg(tip_krnl, 0, sizeof(cl_mem), &in_out_buf);
   check(status);
   status = clSetKernelArg(tip_krnl, 1, sizeof(cl_mem), &num_subtrees_buf);
   check(status);
@@ -912,17 +820,23 @@ cl_int calculate_hash(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 // kernel (global_size_x x global_size_y)-many times
 //
 // It should produce same number of rescue prime digests, each of width 4,
-// while in input each was of width 8, because two input rescue prime digests to
-// be merged
+// while in input each was of width 8, because two input rescue prime digests
+// are being merged
 cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
              cl_ulong *input, cl_ulong *output, size_t global_size_x,
-             size_t global_size_y, size_t local_size_x, size_t local_size_y) {
+             size_t global_size_y, size_t local_size_x, size_t local_size_y,
+             cl_ulong *ts) {
   cl_int status;
 
+  const size_t in_width = 8ul;
+  const size_t out_width = 4ul;
+  const size_t in_size =
+      global_size_x * global_size_y * in_width * sizeof(cl_ulong);
+  const size_t out_size =
+      global_size_x * global_size_y * out_width * sizeof(cl_ulong);
+
   // input is supplied to kernel by this buffer
-  cl_mem in_buf = clCreateBuffer(
-      ctx, CL_MEM_READ_ONLY,
-      sizeof(cl_ulong) * 8 * global_size_x * global_size_y, NULL, &status);
+  cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, in_size, NULL, &status);
 
   // Following three buffers will be storing rescue prime hash constants
   cl_mem mds_buf =
@@ -933,16 +847,13 @@ cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
       clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK2), NULL, &status);
 
   // output to be placed here, after kernel completes hash computation
-  cl_mem out_buf = clCreateBuffer(
-      ctx, CL_MEM_WRITE_ONLY,
-      sizeof(cl_ulong) * 4 * global_size_x * global_size_y, NULL, &status);
+  cl_mem out_buf =
+      clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, out_size, NULL, &status);
 
   // input being copied to device memory
   cl_event evt_0;
-  status =
-      clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0,
-                           sizeof(cl_ulong) * 8 * global_size_x * global_size_y,
-                           input, 0, NULL, &evt_0);
+  status = clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0, in_size, input, 0,
+                                NULL, &evt_0);
 
   // scheduling rescue prime constant copying
   cl_event evt_1;
@@ -975,12 +886,24 @@ cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 
   // hash output being copied back to host
   cl_event evt_5;
-  status =
-      clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0,
-                          sizeof(cl_ulong) * 4 * global_size_x * global_size_y,
-                          output, 1, &evt_4, &evt_5);
+  status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, out_size, output, 1,
+                               &evt_4, &evt_5);
 
   status = clWaitForEvents(1, &evt_5);
+
+  // figure out how long kernel execution originally took
+  // only when function caller wants this function to figure out
+  if (ts != NULL) {
+    cl_ulong start, end;
+    status = clGetEventProfilingInfo(evt_4, CL_PROFILING_COMMAND_START,
+                                     sizeof(cl_ulong), &start, NULL);
+    check(status);
+    status = clGetEventProfilingInfo(evt_4, CL_PROFILING_COMMAND_END,
+                                     sizeof(cl_ulong), &end, NULL);
+    check(status);
+
+    *ts = (end - start);
+  }
 
   clReleaseEvent(evt_0);
   clReleaseEvent(evt_1);
@@ -1015,7 +938,7 @@ cl_int test_merge(cl_context ctx, cl_command_queue cq, cl_kernel hash_krnl,
   // one after another
   //
   // Do this thing twice i.e. using two work-items
-  status = merge(ctx, cq, merge_krnl, in, out + 8, 1, 2, 1, 2);
+  status = merge(ctx, cq, merge_krnl, in, out + 8, 1, 2, 1, 2, NULL);
 
   // it should produce 8 hash digests, each of width 4 field elements 👇
   //
