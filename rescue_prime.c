@@ -109,13 +109,9 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, in_size, NULL, &status);
   check(status);
   cl_mem out_buf =
-      clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, out_size, NULL, &status);
+      clCreateBuffer(ctx, CL_MEM_READ_WRITE, out_size, NULL, &status);
   check(status);
 
-  // same buffer region to be used for first writing purpose
-  // then reading for computing next level of intermediate nodes
-  //
-  // which is why next to subbuffers cover same region of original buffer
   cl_buffer_region out_sub_buf_reg_0;
   out_sub_buf_reg_0.origin = itmd_size_0;
   out_sub_buf_reg_0.size = itmd_size_0;
@@ -130,20 +126,24 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   // different operands ) for reading already computed intermediate nodes (
   // level just above leaf ) and computing next level, which I'll finally write
   // to following subbuffer
+  cl_buffer_region out_sub_buf_reg_1;
+  out_sub_buf_reg_1.origin = itmd_size_0;
+  out_sub_buf_reg_1.size = itmd_size_0;
+
   cl_mem in_buf_0 =
       clCreateSubBuffer(out_buf, CL_MEM_READ_ONLY, CL_BUFFER_CREATE_TYPE_REGION,
-                        &out_sub_buf_reg_0, &status);
+                        &out_sub_buf_reg_1, &status);
   check(status);
 
   // another region of original output buffer where some output to be written
   // these are next level of intermediate nodes
-  cl_buffer_region out_sub_buf_reg_1;
-  out_sub_buf_reg_1.origin = itmd_size_1;
-  out_sub_buf_reg_1.size = itmd_size_1;
+  cl_buffer_region out_sub_buf_reg_2;
+  out_sub_buf_reg_2.origin = itmd_size_1;
+  out_sub_buf_reg_2.size = itmd_size_1;
 
   cl_mem out_buf_1 = clCreateSubBuffer(out_buf, CL_MEM_WRITE_ONLY,
                                        CL_BUFFER_CREATE_TYPE_REGION,
-                                       &out_sub_buf_reg_1, &status);
+                                       &out_sub_buf_reg_2, &status);
   check(status);
 
   // this region of output buffer to be both read and written
