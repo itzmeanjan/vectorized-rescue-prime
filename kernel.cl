@@ -446,8 +446,8 @@ __kernel void build_merkle_tree_tip_seq(__global ulong *in_out_buf,
                                         __global ulong16 mds[12],
                                         __global ulong16 ark1[7],
                                         __global ulong16 ark2[7]) {
-  if (get_global_id(0) == 0 && get_global_id(1) == 0 && get_global_id(2) == 0) {
-    for (size_t i = num_subtrees[0] - 1; i >= 0; i--) {
+  if (get_global_id(0) == 0) {
+    for (size_t i = num_subtrees[0] - 1; i > 0; i--) {
       ulong16 state = (ulong16)(0ul);
       state.s01234567 = vload8(i, in_out_buf);
       state.sb = RATE_WIDTH;
