@@ -259,6 +259,56 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   status = clWaitForEvents(1, &evt_8);
   check(status);
 
+  clReleaseEvent(evt_0);
+  clReleaseEvent(evt_1);
+  clReleaseEvent(evt_2);
+  clReleaseEvent(evt_3);
+  clReleaseEvent(evt_4);
+  clReleaseEvent(evt_5);
+  clReleaseEvent(evt_6);
+  clReleaseEvent(evt_7);
+  clReleaseEvent(evt_8);
+
+  clReleaseMemObject(in_buf);
+  clReleaseMemObject(out_buf);
+  clReleaseMemObject(out_buf_0);
+  clReleaseMemObject(in_buf_0);
+  clReleaseMemObject(out_buf_1);
+  clReleaseMemObject(in_out_buf);
+  clReleaseMemObject(num_subtrees_buf);
+  clReleaseMemObject(mds_buf);
+  clReleaseMemObject(ark1_buf);
+  clReleaseMemObject(ark2_buf);
+
+  return CL_SUCCESS;
+}
+
+cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
+                               cl_kernel merge_krnl_0, cl_kernel merge_krnl_1,
+                               cl_kernel tip_kernel) {
+  cl_int status;
+
+  // leave count of merkle tree
+  const size_t N = 16;
+  // because each rescue prime digest consists of 4 field elements
+  const size_t io_width = 4;
+  const size_t io_size = N * io_width * sizeof(cl_long);
+
+  cl_ulong *in = malloc(io_size);
+  cl_ulong *out = malloc(io_size);
+
+  memset(in, 0, io_size);
+  memset(out, 0, io_size);
+
+  random_field_elements(in, io_size / sizeof(cl_ulong));
+
+  status = build_merkle_nodes(ctx, cq, merge_krnl_0, merge_krnl_1, tip_kernel,
+                              in, out, N, 1);
+  check(status);
+
+  free(in);
+  free(out);
+
   return CL_SUCCESS;
 }
 
