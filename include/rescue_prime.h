@@ -62,6 +62,15 @@ cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
              size_t global_size_y, size_t local_size_x, size_t local_size_y,
              cl_ulong *ts);
 
+cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
+                          cl_kernel merge_krnl_0, cl_kernel merge_krnl_1,
+                          cl_kernel tip_krnl, cl_ulong *in, cl_ulong *out,
+                          const size_t leave_count, const size_t wg_size);
+
+cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
+                               cl_kernel merge_krnl_0, cl_kernel merge_krnl_1,
+                               cl_kernel tip_kernel);
+
 // Tests against following described scenario holds
 //
 // A = [0, 1, 2, 3, 4, 5, 6, 7]
