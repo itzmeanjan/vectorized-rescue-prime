@@ -9,14 +9,16 @@ I've already implemented ZkSTARK-friendly Rescue Prime Hash function for 64-bit 
 
 > You may want to read about [Rescue Prime Hash function](https://eprint.iacr.org/2020/1143.pdf).
 
+> My implementation collects quite a lot of motivation from [here](https://github.com/novifinancial/winterfell/tree/4eeb4670387f3682fa0841e09cdcbe1d43302bf3/crypto#rescue-hash-function-implementation)
+
 > My [other implementation](https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp) of Rescue Prime Hash, in SYCL/ DPC++, non-vectorized.
 
 > [Benchmark results](https://github.com/itzmeanjan/ff-gpu/blob/a0a4ae7e945a4d27f615e1e00a8625566d56159a/benchmarks/rescue_prime.md) of SYCL/ DPC++ Rescue Prime Hash function.
 
 ## Prerequisite 
 
-- You must have OpenCL development headers, library installed. 
-- You may also install `clinfo`, just get an overview of your OpenCL installation.
+- You must have OpenCL development headers and ICD installed. Take a look [here](https://github.com/kenba/cl3/blob/78f04cb2d55fd313816daeb9d0bb33ea1820cb91/docs/opencl_installation.md)
+- You may also install `clinfo`, just to get an overview of your OpenCL installation.
 
 ```bash
 sudo apt-get install clinfo
@@ -33,25 +35,27 @@ gcc (Ubuntu 9.3.0-17ubuntu1~20.04) 9.3.0
 
 ## Usage
 
-- Just run 👇 to compile host code, device code compilation is done at runtime.
+- Just run 👇 to compile host code; device code compilation is done at runtime.
 
 ```bash
 make
 ```
 
-- Run executable using 
+- Run executable using
 
 ```bash
 ./run
 ```
 
-- It should run some standard test cases against kernels and finally a benchmark suite is run on Rescue Prime Hash function kernel.
+- It should run some standard test cases against kernels and finally a benchmark suite is run on Rescue Prime `hash_elements` and `merge` kernel function.
 
-> You probably want to take a look at vectorized `hash_elements` [OpenCL kernel](https://github.com/itzmeanjan/vectorized-rescue-prime/blob/fa5ec366d5955f08f3e5734b33bde842cfd570c6/kernel.cl#L320-L376), if you want to use it in your project.
+> You probably want to take a look at vectorized `hash_elements`/ `merge` [OpenCL kernels](https://github.com/itzmeanjan/vectorized-rescue-prime/blob/f2316e3b8425e0484e69817e3e45ac0c3d60187b/kernel.cl#L307-L428), if you want to use it in your project.
+
+> You can find relevant examples [here](https://github.com/itzmeanjan/vectorized-rescue-prime/blob/6d2e242ce1af02f4c3d24a182b6068b42f6e1bfb/rescue_prime.c#L630-L828)
 
 ## Benchmark
 
-For setting up benchmark in data parallel environment, I use one 2D computational grid of size M x N, and launch `hash_elements` kernel with input of size M x N x 8. So each work-item will read 8 randomly generated 64-bit prime field elements and total of M x N-many independent hashes to be computed. Output to be written into global memory with OpenCL vector store intrinsics. For writing output I provide with one buffer of size M x N x 4, so that each work-item can produce output of width 4-prime field elements i.e. 256-bits. In following benchmark results I only show time to computes hashes, host-device and device-host data transfer costs are not included.
+For setting up benchmark in data parallel environment, I use one 2D computational grid of size M x N, and launch `hash_elements`, `merge` kernels with input of size M x N x 8. So each work-item will read 8 randomly generated 64-bit prime field elements and total of M x N-many independent hashes to be computed/ merging of hash digests to be performed. Output to be written into global memory with OpenCL vector store intrinsics. For writing output I provide with one buffer of size M x N x 4, so that each work-item can produce output of width 4-prime field elements i.e. 256-bits. In following benchmark results I only show time to compute hash/ merge by enabling profiling in command queue, host-device and device-host data transfer costs are not included, though they are performed just to ensure compiler doesn't end up optimizing too much so that benchmark suite doesn't run kernels as I expect it to be run.
 
 ### Intel CPU with OpenCL
 
@@ -76,6 +80,7 @@ Kernel <test_apply_mds> was not vectorized
 Kernel <test_apply_inv_sbox> was not vectorized
 Kernel <test_apply_rescue_permutation> was not vectorized
 Kernel <hash_elements> was not vectorized
+Kernel <merge> was not vectorized
 Done.
 
 passed apply_sbox tests !
@@ -83,13 +88,21 @@ passed apply_inv_sbox tests !
 passed apply_rescue_permutation tests !
 passed apply_mds tests !
 passed reduce_sum_vec2 tests !
+passed merge tests !
 
 Rescue Prime Hash Benchmark
 
-  128 x   128		    341.97 ms		       47911.06 hashes/ sec
-  256 x   256		   1366.71 ms		       47951.69 hashes/ sec
-  512 x   512		   5463.32 ms		       47982.57 hashes/ sec
- 1024 x  1024		  22157.56 ms		       47323.61 hashes/ sec
+  hash_elements		  128 x   128		              341.79 ms		       47935.40 hashes/ sec
+  hash_elements		  256 x   256		             1400.54 ms		       46793.30 hashes/ sec
+  hash_elements		  512 x   512		             5462.69 ms		       47988.12 hashes/ sec
+  hash_elements		 1024 x  1024		            21994.77 ms		       47673.89 hashes/ sec
+
+Rescue Prime Merge Benchmark
+
+          merge		  128 x   128		                0.10 ms		   157132033.49 merges/ sec
+          merge		  256 x   256		                0.28 ms		   230658229.10 merges/ sec
+          merge		  512 x   512		                2.32 ms		   113080545.90 merges/ sec
+          merge		 1024 x  1024		                9.35 ms		   112100419.30 merges/ sec
 ```
 
 ### Nvidia Tesla V100 GPU with OpenCL
@@ -110,14 +123,25 @@ passed apply_inv_sbox tests !
 passed apply_rescue_permutation tests !
 passed apply_mds tests !
 passed reduce_sum_vec2 tests !
+passed merge tests !
 
 Rescue Prime Hash Benchmark
 
-  128 x   128		      2.06 ms		     7941832.28 hashes/ sec
-  256 x   256		      7.76 ms		     8448627.05 hashes/ sec
-  512 x   512		     28.01 ms		     9358943.23 hashes/ sec
- 1024 x  1024		    111.23 ms		     9426927.50 hashes/ sec
- 2048 x  2048		    425.38 ms		     9860204.01 hashes/ sec
- 4096 x  4096		   1628.74 ms		    10300764.70 hashes/ sec
- 8192 x  8192		   6472.39 ms		    10368476.33 hashes/ sec
+  hash_elements		  128 x   128		                2.05 ms		     7996002.00 hashes/ sec
+  hash_elements		  256 x   256		                7.61 ms		     8610251.58 hashes/ sec
+  hash_elements		  512 x   512		               27.88 ms		     9404158.40 hashes/ sec
+  hash_elements		 1024 x  1024		              110.88 ms		     9456526.76 hashes/ sec
+  hash_elements		 2048 x  2048		              407.84 ms		    10284299.62 hashes/ sec
+  hash_elements		 4096 x  4096		             1619.96 ms		    10356556.57 hashes/ sec
+  hash_elements		 8192 x  8192		             6476.92 ms		    10361229.62 hashes/ sec
+
+Rescue Prime Merge Benchmark
+
+          merge		  128 x   128		                0.04 ms		   396284829.72 merges/ sec
+          merge		  256 x   256		                0.17 ms		   385760030.14 merges/ sec
+          merge		  512 x   512		                0.88 ms		   296908412.16 merges/ sec
+          merge		 1024 x  1024		               23.87 ms		    43924461.94 merges/ sec
+          merge		 2048 x  2048		              114.61 ms		    36595004.99 merges/ sec
+          merge		 4096 x  4096		              411.55 ms		    40766144.24 merges/ sec
+          merge		 8192 x  8192		             1620.33 ms		    41416831.70 merges/ sec
 ```
