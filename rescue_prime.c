@@ -269,6 +269,177 @@ cl_int bench_merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
   return CL_SUCCESS;
 }
 
+cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
+                          cl_kernel merge_krnl_0, cl_kernel merge_krnl_1,
+                          cl_kernel tip_krnl, cl_ulong *in, cl_ulong *out,
+                          const size_t leave_count, const size_t wg_size) {
+  // leave count of merkle tree should be power of 2
+  assert((leave_count) & (leave_count - 1ul) == 0);
+  // intermediate nodes of tree those can be computed in parallel
+  //
+  // to be specific
+  // https://github.com/novifinancial/winterfell/blob/377e916c47fab3d9fa173b2f6123c7b713ffce03/crypto/src/merkle/mod.rs#L326-L329
+  // section
+  const size_t itmd_par_node_cnt = leave_count >> 1;
+  const size_t subtree_cnt = itmd_par_node_cnt >> 1;
+  assert(itmd_par_node_cnt >= wg_size);
+  // input/ output both are 4-field element wide
+  // rescue prime hash digests, stored in consequtive memory locations
+  const size_t io_width = 4ul;
+  const size_t in_size = io_width * leave_count * sizeof(cl_ulong);
+  const size_t out_size = io_width * leave_count * sizeof(cl_ulong);
+  const size_t itmd_size_0 = io_width * itmd_par_node_cnt * sizeof(cl_ulong);
+  const size_t itmd_size_1 = io_width * subtree_cnt * sizeof(cl_ulong);
+
+  cl_int status;
+
+  cl_mem mds_buf =
+      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(MDS), NULL, &status);
+  check(status);
+  cl_mem ark1_buf =
+      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK1), NULL, &status);
+  check(status);
+  cl_mem ark2_buf =
+      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK2), NULL, &status);
+  check(status);
+
+  cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, in_size, NULL, &status);
+  check(status);
+  cl_mem out_buf =
+      clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, out_size, NULL, &status);
+  check(status);
+
+  cl_buffer_region out_buf_reg_0;
+  out_buf_reg_0.origin = itmd_size_0;
+  out_buf_reg_0.size = itmd_size_0;
+
+  cl_mem out_buf_0 =
+      clCreateSubBuffer(out_buf, CL_MEM_WRITE_ONLY,
+                        CL_BUFFER_CREATE_TYPE_REGION, &out_buf_reg_0, &status);
+  check(status);
+
+  cl_mem in_buf_0 =
+      clCreateSubBuffer(out_buf, CL_MEM_READ_ONLY, CL_BUFFER_CREATE_TYPE_REGION,
+                        &out_buf_reg_0, &status);
+  check(status);
+
+  cl_buffer_region out_buf_reg_1;
+  out_buf_reg_1.origin = itmd_size_1;
+  out_buf_reg_1.size = itmd_size_1;
+
+  cl_mem out_buf_1 =
+      clCreateSubBuffer(out_buf, CL_MEM_WRITE_ONLY,
+                        CL_BUFFER_CREATE_TYPE_REGION, &out_buf_reg_1, &status);
+  check(status);
+
+  cl_buffer_region in_out_buf_reg;
+  in_out_buf_reg.origin = 0;
+  in_out_buf_reg.size = itmd_size_1;
+
+  cl_mem in_out_buf =
+      clCreateSubBuffer(out_buf, CL_MEM_READ_WRITE,
+                        CL_BUFFER_CREATE_TYPE_REGION, &in_out_buf_reg, &status);
+  check(status);
+
+  status = clSetKernelArg(merge_krnl_0, 0, sizeof(cl_mem), &in_buf);
+  check(status);
+  status = clSetKernelArg(merge_krnl_0, 1, sizeof(cl_mem), &mds_buf);
+  check(status);
+  status = clSetKernelArg(merge_krnl_0, 2, sizeof(cl_mem), &ark1_buf);
+  check(status);
+  status = clSetKernelArg(merge_krnl_0, 3, sizeof(cl_mem), &ark2_buf);
+  check(status);
+  status = clSetKernelArg(merge_krnl_0, 4, sizeof(cl_mem), &out_buf_0);
+  check(status);
+
+  cl_event evt_0;
+  status = clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0, in_size, in, 0, NULL,
+                                &evt_0);
+  check(status);
+
+  cl_event evt_1;
+  status = clEnqueueWriteBuffer(cq, mds_buf, CL_FALSE, 0, sizeof(MDS), MDS, 0,
+                                NULL, &evt_1);
+  check(status);
+
+  cl_event evt_2;
+  status = clEnqueueWriteBuffer(cq, ark1_buf, CL_FALSE, 0, sizeof(ARK1), ARK1,
+                                0, NULL, &evt_2);
+  check(status);
+
+  cl_event evt_3;
+  status = clEnqueueWriteBuffer(cq, ark2_buf, CL_FALSE, 0, sizeof(ARK2), ARK2,
+                                0, NULL, &evt_3);
+  check(status);
+
+  size_t global_size_0[] = {1, itmd_par_node_cnt};
+  size_t local_size_0[] = {1, wg_size};
+  cl_event evts[] = {evt_0, evt_1, evt_2, evt_3};
+
+  cl_event evt_4;
+  status = clEnqueueNDRangeKernel(cq, merge_krnl_0, 2, NULL, global_size_0,
+                                  local_size_0, 4, evts, &evt_4);
+  check(status);
+
+  status = clSetKernelArg(merge_krnl_1, 0, sizeof(cl_mem), &in_buf_0);
+  check(status);
+  status = clSetKernelArg(merge_krnl_1, 1, sizeof(cl_mem), &mds_buf);
+  check(status);
+  status = clSetKernelArg(merge_krnl_1, 2, sizeof(cl_mem), &ark1_buf);
+  check(status);
+  status = clSetKernelArg(merge_krnl_1, 3, sizeof(cl_mem), &ark2_buf);
+  check(status);
+  status = clSetKernelArg(merge_krnl_1, 4, sizeof(cl_mem), &out_buf_1);
+  check(status);
+
+  size_t global_size_1[] = {1, subtree_cnt};
+  size_t local_size_1[] = {1, wg_size};
+
+  cl_event evt_5;
+  status = clEnqueueNDRangeKernel(cq, merge_krnl_1, 2, NULL, global_size_1,
+                                  local_size_1, 1, &evt_4, &evt_5);
+  check(status);
+
+  cl_mem num_subtrees_buf =
+      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(size_t), NULL, &status);
+  check(status);
+
+  status = clSetKernelArg(tip_krnl, 0, sizeof(cl_mem), &in_buf_0);
+  check(status);
+  status = clSetKernelArg(tip_krnl, 1, sizeof(cl_mem), &num_subtrees_buf);
+  check(status);
+  status = clSetKernelArg(tip_krnl, 2, sizeof(cl_mem), &mds_buf);
+  check(status);
+  status = clSetKernelArg(tip_krnl, 3, sizeof(cl_mem), &ark1_buf);
+  check(status);
+  status = clSetKernelArg(tip_krnl, 4, sizeof(cl_mem), &ark2_buf);
+  check(status);
+
+  cl_event evt_6;
+  status = clEnqueueWriteBuffer(cq, num_subtrees_buf, CL_FALSE, 0,
+                                sizeof(size_t), &subtree_cnt, 0, NULL, &evt_6);
+  check(status);
+
+  size_t global_size_2[] = {1};
+  size_t local_size_2[] = {1};
+  cl_event evts_[] = {evt_5, evt_6};
+
+  cl_event evt_7;
+  status = clEnqueueNDRangeKernel(cq, tip_krnl, 1, NULL, global_size_2,
+                                  local_size_2, 2, evts_, &evt_7);
+  check(status);
+
+  cl_event evt_8;
+  status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, out_size, out, 1,
+                               &evt_7, &evt_8);
+  check(status);
+
+  status = clWaitForEvents(1, &evt_8);
+  check(status);
+
+  return CL_SUCCESS;
+}
+
 cl_int test_apply_sbox(cl_context ctx, cl_command_queue cq, cl_kernel krnl) {
   cl_int status;
 
