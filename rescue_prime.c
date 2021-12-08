@@ -72,9 +72,9 @@ cl_int bench_merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 }
 
 cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
-                          cl_kernel merge_krnl_0, cl_kernel merge_krnl_1,
-                          cl_kernel tip_krnl, cl_ulong *in, cl_ulong *out,
-                          const size_t leave_count, const size_t wg_size) {
+                          cl_kernel merge_krnl, cl_kernel tip_krnl,
+                          cl_ulong *in, cl_ulong *out, const size_t leave_count,
+                          const size_t wg_size) {
   // leave count of merkle tree should be power of 2
   assert((leave_count & (leave_count - 1ul)) == 0);
   // intermediate nodes of tree those can be computed in parallel
@@ -163,15 +163,15 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
                         CL_BUFFER_CREATE_TYPE_REGION, &in_out_buf_reg, &status);
   check(status);
 
-  status = clSetKernelArg(merge_krnl_0, 0, sizeof(cl_mem), &in_buf);
+  status = clSetKernelArg(merge_krnl, 0, sizeof(cl_mem), &in_buf);
   check(status);
-  status = clSetKernelArg(merge_krnl_0, 1, sizeof(cl_mem), &mds_buf);
+  status = clSetKernelArg(merge_krnl, 1, sizeof(cl_mem), &mds_buf);
   check(status);
-  status = clSetKernelArg(merge_krnl_0, 2, sizeof(cl_mem), &ark1_buf);
+  status = clSetKernelArg(merge_krnl, 2, sizeof(cl_mem), &ark1_buf);
   check(status);
-  status = clSetKernelArg(merge_krnl_0, 3, sizeof(cl_mem), &ark2_buf);
+  status = clSetKernelArg(merge_krnl, 3, sizeof(cl_mem), &ark2_buf);
   check(status);
-  status = clSetKernelArg(merge_krnl_0, 4, sizeof(cl_mem), &out_buf_0);
+  status = clSetKernelArg(merge_krnl, 4, sizeof(cl_mem), &out_buf_0);
   check(status);
 
   cl_event evt_0;
@@ -199,26 +199,26 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   cl_event evts_0[] = {evt_0, evt_1, evt_2, evt_3};
 
   cl_event evt_4;
-  status = clEnqueueNDRangeKernel(cq, merge_krnl_0, 2, NULL, global_size_0,
+  status = clEnqueueNDRangeKernel(cq, merge_krnl, 2, NULL, global_size_0,
                                   local_size_0, 4, evts_0, &evt_4);
   check(status);
 
-  status = clSetKernelArg(merge_krnl_1, 0, sizeof(cl_mem), &in_buf_0);
+  status = clSetKernelArg(merge_krnl, 0, sizeof(cl_mem), &in_buf_0);
   check(status);
-  status = clSetKernelArg(merge_krnl_1, 1, sizeof(cl_mem), &mds_buf);
+  status = clSetKernelArg(merge_krnl, 1, sizeof(cl_mem), &mds_buf);
   check(status);
-  status = clSetKernelArg(merge_krnl_1, 2, sizeof(cl_mem), &ark1_buf);
+  status = clSetKernelArg(merge_krnl, 2, sizeof(cl_mem), &ark1_buf);
   check(status);
-  status = clSetKernelArg(merge_krnl_1, 3, sizeof(cl_mem), &ark2_buf);
+  status = clSetKernelArg(merge_krnl, 3, sizeof(cl_mem), &ark2_buf);
   check(status);
-  status = clSetKernelArg(merge_krnl_1, 4, sizeof(cl_mem), &out_buf_1);
+  status = clSetKernelArg(merge_krnl, 4, sizeof(cl_mem), &out_buf_1);
   check(status);
 
   size_t global_size_1[] = {1, subtree_cnt};
   size_t local_size_1[] = {1, wg_size};
 
   cl_event evt_5;
-  status = clEnqueueNDRangeKernel(cq, merge_krnl_1, 2, NULL, global_size_1,
+  status = clEnqueueNDRangeKernel(cq, merge_krnl, 2, NULL, global_size_1,
                                   local_size_1, 1, &evt_4, &evt_5);
   check(status);
 
@@ -284,8 +284,7 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
 }
 
 cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
-                               cl_kernel merge_krnl_0, cl_kernel merge_krnl_1,
-                               cl_kernel tip_kernel) {
+                               cl_kernel merge_krnl, cl_kernel tip_kernel) {
   cl_int status;
 
   // leave count of merkle tree
@@ -305,21 +304,12 @@ cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   // step by step on a pair of merkle tree nodes
   cl_ulong *out_1 = malloc(io_size);
 
-  // set all bytes to zero first, just to ensure first 4 elements
-  // of `out_0` are not touched by kernel(s) when `build_merkle_nodes`
-  // function is invoked, with `out_0` for storing intermediate nodes
-  // of merkle tree
-  memset(in, 0, io_size);
-  memset(out_0, 0, io_size);
-  memset(out_1, 0, io_size);
-
   // randomly generated N * 4-many prime field elements
   // to be interpreted as N-many rescue prime hash digests
   random_field_elements(in, io_size / sizeof(cl_ulong));
 
   // compute merkle tree intermediate nodes, to be asserted in next few steps
-  status = build_merkle_nodes(ctx, cq, merge_krnl_0, merge_krnl_1, tip_kernel,
-                              in, out_0, N, 1);
+  status = build_merkle_nodes(ctx, cq, merge_krnl, tip_kernel, in, out_0, N, 1);
   check(status);
 
   // Assume A = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
@@ -329,7 +319,7 @@ cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   //
   // B = [0; 16], result array for storing all intermediate nodes of tree
   // such that
-  // - B[0] == zeroed by `memset`
+  // - B[0] == may be some random value, but of no interest
   // - B[1] == root
   // - B[2], B[3] == children of B[1]
   // - B[4], B[5] == children of B[2]
@@ -343,7 +333,7 @@ cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   //
   // For N-many leaves N/2 -many intermediate nodes are computed in this step
   for (size_t j = 1; j <= (N >> 1); j++) {
-    status = merge(ctx, cq, merge_krnl_0, in + (N - 2 * j) * io_width,
+    status = merge(ctx, cq, merge_krnl, in + (N - 2 * j) * io_width,
                    out_1 + (N - j) * io_width, 1, 1, 1, 1, NULL);
 
     for (size_t i = 0; i < io_width; i++) {
@@ -363,7 +353,7 @@ cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   // B[5] = merge(B[10], B[11])
   // B[4] = merge(B[8], B[9])
   for (size_t j = 1; j <= (N >> 2); j++) {
-    status = merge(ctx, cq, merge_krnl_0, out_1 + (N - 2 * j) * io_width,
+    status = merge(ctx, cq, merge_krnl, out_1 + (N - 2 * j) * io_width,
                    out_1 + ((N >> 1) - j) * io_width, 1, 1, 1, 1, NULL);
 
     for (size_t i = 0; i < io_width; i++) {
@@ -377,7 +367,7 @@ cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   // B[3] = merge(B[6], B[7])
   // B[2] = merge(B[4], B[5])
   for (size_t j = 1; j <= (N >> 3); j++) {
-    status = merge(ctx, cq, merge_krnl_0, out_1 + ((N >> 1) - 2 * j) * io_width,
+    status = merge(ctx, cq, merge_krnl, out_1 + ((N >> 1) - 2 * j) * io_width,
                    out_1 + ((N >> 2) - j) * io_width, 1, 1, 1, 1, NULL);
 
     for (size_t i = 0; i < io_width; i++) {
@@ -392,7 +382,7 @@ cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   //
   // B[1] = merge(B[2], B[3])
   for (size_t j = 1; j <= (N >> 4); j++) {
-    status = merge(ctx, cq, merge_krnl_0, out_1 + ((N >> 2) - 2 * j) * io_width,
+    status = merge(ctx, cq, merge_krnl, out_1 + ((N >> 2) - 2 * j) * io_width,
                    out_1 + ((N >> 3) - j) * io_width, 1, 1, 1, 1, NULL);
 
     for (size_t i = 0; i < io_width; i++) {
@@ -401,20 +391,12 @@ cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
     }
   }
 
-  // just to ensure B[0] was never touched by kernels dispatched in
-  // `build_merkle_nodes` function
-  //
-  // I'm certain that I, myself, have never touched first four field elements
-  // `out_1`, so they should be zeroed, as I did at very beginning of this
-  // function using `memset`
-  for (size_t j = 0; j < io_width; j++) {
-    assert(*(out_0 + j) == *(out_1 + j));
-  }
-
   // deallocate resources
   free(in);
   free(out_0);
   free(out_1);
+
+  printf("passed build_merkle_nodes tests !\n");
 
   return CL_SUCCESS;
 }
