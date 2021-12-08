@@ -85,6 +85,7 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   const size_t itmd_par_node_cnt = leave_count >> 1;
   const size_t subtree_cnt = itmd_par_node_cnt >> 1;
   assert(itmd_par_node_cnt >= wg_size);
+  assert(subtree_cnt >= wg_size);
   // input/ output both are 4-field element wide
   // rescue prime hash digests, stored in consequtive memory locations
   const size_t io_width = 4ul;
@@ -111,32 +112,51 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
       clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, out_size, NULL, &status);
   check(status);
 
-  cl_buffer_region out_buf_reg_0;
-  out_buf_reg_0.origin = itmd_size_0;
-  out_buf_reg_0.size = itmd_size_0;
+  // same buffer region to be used for first writing purpose
+  // then reading for computing next level of intermediate nodes
+  //
+  // which is why next to subbuffers cover same region of original buffer
+  cl_buffer_region out_sub_buf_reg_0;
+  out_sub_buf_reg_0.origin = itmd_size_0;
+  out_sub_buf_reg_0.size = itmd_size_0;
 
-  cl_mem out_buf_0 =
-      clCreateSubBuffer(out_buf, CL_MEM_WRITE_ONLY,
-                        CL_BUFFER_CREATE_TYPE_REGION, &out_buf_reg_0, &status);
+  // here this subbuffer to be written to
+  cl_mem out_buf_0 = clCreateSubBuffer(out_buf, CL_MEM_WRITE_ONLY,
+                                       CL_BUFFER_CREATE_TYPE_REGION,
+                                       &out_sub_buf_reg_0, &status);
   check(status);
 
+  // then I'll dispatch another kernel ( actually same `merge` kernel but with
+  // different operands ) for reading already computed intermediate nodes (
+  // level just above leaf ) and computing next level, which I'll finally write
+  // to following subbuffer
   cl_mem in_buf_0 =
       clCreateSubBuffer(out_buf, CL_MEM_READ_ONLY, CL_BUFFER_CREATE_TYPE_REGION,
-                        &out_buf_reg_0, &status);
+                        &out_sub_buf_reg_0, &status);
   check(status);
 
-  cl_buffer_region out_buf_reg_1;
-  out_buf_reg_1.origin = itmd_size_1;
-  out_buf_reg_1.size = itmd_size_1;
+  // another region of original output buffer where some output to be written
+  // these are next level of intermediate nodes
+  cl_buffer_region out_sub_buf_reg_1;
+  out_sub_buf_reg_1.origin = itmd_size_1;
+  out_sub_buf_reg_1.size = itmd_size_1;
 
-  cl_mem out_buf_1 =
-      clCreateSubBuffer(out_buf, CL_MEM_WRITE_ONLY,
-                        CL_BUFFER_CREATE_TYPE_REGION, &out_buf_reg_1, &status);
+  cl_mem out_buf_1 = clCreateSubBuffer(out_buf, CL_MEM_WRITE_ONLY,
+                                       CL_BUFFER_CREATE_TYPE_REGION,
+                                       &out_sub_buf_reg_1, &status);
   check(status);
 
+  // this region of output buffer to be both read and written
+  // during execution of `build_merkle_tree_tip_seq` kernel where
+  // only single work-item does something useful, which is why I also
+  // dispatch single work-item to complete desirec job on device
+  //
+  // this is done due to (somewhat) complicated access pattern
+  // when computing tip of merkle tree, which is hard to parallelize and
+  // unnecessarily increases cost of computation
   cl_buffer_region in_out_buf_reg;
   in_out_buf_reg.origin = 0;
-  in_out_buf_reg.size = itmd_size_1;
+  in_out_buf_reg.size = itmd_size_0;
 
   cl_mem in_out_buf =
       clCreateSubBuffer(out_buf, CL_MEM_READ_WRITE,
@@ -176,11 +196,11 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
 
   size_t global_size_0[] = {1, itmd_par_node_cnt};
   size_t local_size_0[] = {1, wg_size};
-  cl_event evts[] = {evt_0, evt_1, evt_2, evt_3};
+  cl_event evts_0[] = {evt_0, evt_1, evt_2, evt_3};
 
   cl_event evt_4;
   status = clEnqueueNDRangeKernel(cq, merge_krnl_0, 2, NULL, global_size_0,
-                                  local_size_0, 4, evts, &evt_4);
+                                  local_size_0, 4, evts_0, &evt_4);
   check(status);
 
   status = clSetKernelArg(merge_krnl_1, 0, sizeof(cl_mem), &in_buf_0);
@@ -224,11 +244,11 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
 
   size_t global_size_2[] = {1};
   size_t local_size_2[] = {1};
-  cl_event evts_[] = {evt_5, evt_6};
+  cl_event evts_1[] = {evt_5, evt_6};
 
   cl_event evt_7;
   status = clEnqueueNDRangeKernel(cq, tip_krnl, 1, NULL, global_size_2,
-                                  local_size_2, 2, evts_, &evt_7);
+                                  local_size_2, 2, evts_1, &evt_7);
   check(status);
 
   cl_event evt_8;
