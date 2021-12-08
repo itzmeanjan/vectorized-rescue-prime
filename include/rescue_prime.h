@@ -65,7 +65,7 @@ cl_int merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
                           cl_kernel merge_krnl,
                           cl_kernel tip_krnl, cl_ulong *in, cl_ulong *out,
-                          const size_t leave_count, const size_t wg_size);
+                          const size_t leave_count, const size_t wg_size, cl_ulong *ts);
 
 cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
                                cl_kernel merge_krnl,
