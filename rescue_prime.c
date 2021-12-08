@@ -2,8 +2,8 @@
 #include <rescue_prime_constants.h>
 
 cl_int bench_hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
-                     size_t glb_sz_x, size_t glb_sz_y, size_t loc_sz_x,
-                     size_t loc_sz_y) {
+                           size_t glb_sz_x, size_t glb_sz_y, size_t loc_sz_x,
+                           size_t loc_sz_y) {
   cl_int status;
 
   const size_t in_width = 8ul;
@@ -101,8 +101,9 @@ cl_int bench_hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
   // by enabling profiling in command queue
   double ts = (double)(end - start);
 
-  printf("%5lu x %5lu\t\t%20.2f ms\t\t%15.2f hashes/ sec\n", glb_sz_x, glb_sz_y,
-         ts * 1e-6, ((double)(glb_sz_x * glb_sz_y) / (double)ts) * 1e9);
+  printf("%15s\t\t%5lu x %5lu\t\t%20.2f ms\t\t%15.2f hashes/ sec\n",
+         "hash_elements", glb_sz_x, glb_sz_y, ts * 1e-6,
+         ((double)(glb_sz_x * glb_sz_y) / (double)ts) * 1e9);
 
   status = clReleaseEvent(evt_0);
   check(status);
@@ -122,6 +123,136 @@ cl_int bench_hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
   status = clReleaseMemObject(in_buf);
   check(status);
   status = clReleaseMemObject(in_size_buf);
+  check(status);
+  status = clReleaseMemObject(mds_buf);
+  check(status);
+  status = clReleaseMemObject(ark1_buf);
+  check(status);
+  status = clReleaseMemObject(ark2_buf);
+  check(status);
+  status = clReleaseMemObject(out_buf);
+  check(status);
+
+  free(in_arr);
+  free(out_arr);
+
+  return CL_SUCCESS;
+}
+
+cl_int bench_merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
+                   size_t global_size_x, size_t global_size_y,
+                   size_t local_size_x, size_t local_size_y) {
+  cl_int status;
+
+  const size_t in_width = 8ul;
+  const size_t out_width = 4ul;
+  const size_t in_size =
+      global_size_x * global_size_y * in_width * sizeof(cl_ulong);
+  const size_t out_size =
+      global_size_x * global_size_y * out_width * sizeof(cl_ulong);
+
+  cl_ulong *in_arr = malloc(in_size);
+  cl_ulong *out_arr = malloc(out_size);
+
+  random_field_elements(in_arr, in_size / sizeof(cl_ulong));
+
+  cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, in_size, NULL, &status);
+  check(status);
+  cl_mem mds_buf =
+      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(MDS), NULL, &status);
+  check(status);
+  cl_mem ark1_buf =
+      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK1), NULL, &status);
+  check(status);
+  cl_mem ark2_buf =
+      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(ARK2), NULL, &status);
+  check(status);
+  cl_mem out_buf =
+      clCreateBuffer(ctx, CL_MEM_WRITE_ONLY, out_size, NULL, &status);
+  check(status);
+
+  status = clSetKernelArg(krnl, 0, sizeof(cl_mem), &in_buf);
+  check(status);
+  status = clSetKernelArg(krnl, 1, sizeof(cl_mem), &mds_buf);
+  check(status);
+  status = clSetKernelArg(krnl, 2, sizeof(cl_mem), &ark1_buf);
+  check(status);
+  status = clSetKernelArg(krnl, 3, sizeof(cl_mem), &ark2_buf);
+  check(status);
+  status = clSetKernelArg(krnl, 4, sizeof(cl_mem), &out_buf);
+  check(status);
+
+  cl_event evt_0;
+  status = clEnqueueWriteBuffer(cq, in_buf, CL_FALSE, 0, in_size, in_arr, 0,
+                                NULL, &evt_0);
+  check(status);
+
+  cl_event evt_1;
+  status = clEnqueueWriteBuffer(cq, mds_buf, CL_FALSE, 0, sizeof(MDS), MDS, 0,
+                                NULL, &evt_1);
+  check(status);
+
+  cl_event evt_2;
+  status = clEnqueueWriteBuffer(cq, ark1_buf, CL_FALSE, 0, sizeof(ARK1), ARK1,
+                                0, NULL, &evt_2);
+  check(status);
+
+  cl_event evt_3;
+  status = clEnqueueWriteBuffer(cq, ark2_buf, CL_FALSE, 0, sizeof(ARK2), ARK2,
+                                0, NULL, &evt_3);
+  check(status);
+
+  size_t global_size[] = {global_size_x, global_size_y};
+  size_t local_size[] = {local_size_x, local_size_y};
+  cl_event evts[] = {evt_0, evt_1, evt_2, evt_3};
+
+  cl_event evt_4;
+  status = clEnqueueNDRangeKernel(cq, krnl, 2, NULL, global_size, local_size, 4,
+                                  evts, &evt_4);
+  check(status);
+
+  cl_event evt_5;
+  status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, out_size, out_arr, 1,
+                               &evt_4, &evt_5);
+  check(status);
+
+  status = clWaitForEvents(1, &evt_5);
+  check(status);
+
+  cl_ulong start, end;
+  status = clGetEventProfilingInfo(evt_5, CL_PROFILING_COMMAND_START,
+                                   sizeof(cl_ulong), &start, NULL);
+  check(status);
+  status = clGetEventProfilingInfo(evt_5, CL_PROFILING_COMMAND_END,
+                                   sizeof(cl_ulong), &end, NULL);
+  check(status);
+
+  // kernel execution time in nanoseconds, obtained
+  // by enabling profiling in command queue
+  //
+  // make sure
+  // https://github.com/itzmeanjan/vectorized-rescue-prime/blob/54df2cd08de2e3d56c7a6e0202981c489ff0ee63/main.c#L35-L44
+  // stays as it's
+  double ts = (double)(end - start);
+
+  printf("%15s\t\t%5lu x %5lu\t\t%20.2f ms\t\t%15.2f merges/ sec\n", "merge",
+         global_size_x, global_size_y, ts * 1e-6,
+         ((double)(global_size_x * global_size_y) / (double)ts) * 1e9);
+
+  status = clReleaseEvent(evt_0);
+  check(status);
+  status = clReleaseEvent(evt_1);
+  check(status);
+  status = clReleaseEvent(evt_2);
+  check(status);
+  status = clReleaseEvent(evt_3);
+  check(status);
+  status = clReleaseEvent(evt_4);
+  check(status);
+  status = clReleaseEvent(evt_5);
+  check(status);
+
+  status = clReleaseMemObject(in_buf);
   check(status);
   status = clReleaseMemObject(mds_buf);
   check(status);

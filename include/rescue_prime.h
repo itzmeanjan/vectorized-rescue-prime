@@ -11,8 +11,12 @@
 // https://github.com/itzmeanjan/vectorized-rescue-prime/blob/91f31a86b16a936e832f4cad9b3cb183d106655d/README.md#benchmark
 // setup
 cl_int bench_hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
-                     size_t glb_sz_x, size_t glb_sz_y, size_t loc_sz_x,
-                     size_t loc_sz_y);
+                           size_t glb_sz_x, size_t glb_sz_y, size_t loc_sz_x,
+                           size_t loc_sz_y);
+
+cl_int bench_merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
+                   size_t global_size_x, size_t global_size_y,
+                   size_t local_size_x, size_t local_size_y);
 
 // Adapted from
 // https://github.com/itzmeanjan/ff-gpu/blob/ad6947dce3033775822e7a790e5b793a8034fec2/tests/test_rescue_prime.cpp#L14-L33
