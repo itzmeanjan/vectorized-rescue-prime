@@ -14,6 +14,8 @@ cl_int bench_hash_elements(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
                            size_t glb_sz_x, size_t glb_sz_y, size_t loc_sz_x,
                            size_t loc_sz_y);
 
+// Benchmarks `merge` kernel, which merges two rescue prime hash digests into
+// single digest
 cl_int bench_merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
                    size_t global_size_x, size_t global_size_y,
                    size_t local_size_x, size_t local_size_y);

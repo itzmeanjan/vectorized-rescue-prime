@@ -317,6 +317,9 @@ __kernel void test_apply_rescue_permutation(__global ulong16 *in,
 //
 // Simply adapted from
 // https://github.com/itzmeanjan/ff-gpu/blob/ad6947dce3033775822e7a790e5b793a8034fec2/rescue_prime.cpp#L3-L25
+//
+// You may want to take a look at
+// https://github.com/novifinancial/winterfell/tree/4eeb4670387f3682fa0841e09cdcbe1d43302bf3/crypto#rescue-hash-function-implementation
 __kernel void hash_elements(__global ulong *in, __constant size_t *size,
                             __global ulong16 mds[12], __global ulong16 ark1[7],
                             __global ulong16 ark2[7], __global ulong *out) {
@@ -375,6 +378,32 @@ __kernel void hash_elements(__global ulong *in, __constant size_t *size,
   vstore4(state.s0123, lin_idx, out);
 }
 
+// This is another important kernel, you may want to use, which merges two
+// rescue prime hash digests ( each of width 4 field elements ) into a single
+// digest of 4 prime field elements.
+//
+// In this kernel, it's done in data parallel fashion, where M x N many inputs
+// are supplied ( 2D grid form compute index space ), each of width 8 field
+// elements ( think of two rescue prime digests concatenated ), and M x N -many
+// work-items will execute following instructions on 2 input hash digests to
+// obtain a single merged digest of width 4 field elements. Finally each of M x
+// N work-items will be writing back to allocated memory, backed by `out` buffer
+//
+// Beautiful relation about above `hash_elements` and below `merge` functions is
+//
+// input = [0, 1, 2, 3, 4, 5, 6, 7]
+// output = [0; 8]
+//
+// output[0:4] = hash_elements(input[:])
+// output[4:8] =    merge(input[:])
+//
+// assert output[0:4] == output[4:8]
+//
+// Adapted from
+// https://github.com/novifinancial/winterfell/blob/4eeb4670387f3682fa0841e09cdcbe1d43302bf3/crypto/src/hash/rescue/rp64_256/mod.rs#L153-L164
+//
+// You may want to take a look at
+// https://github.com/novifinancial/winterfell/tree/4eeb4670387f3682fa0841e09cdcbe1d43302bf3/crypto#rescue-hash-function-implementation
 __kernel void merge(__global ulong *in, __global ulong16 mds[12],
                     __global ulong16 ark1[7], __global ulong16 ark2[7],
                     __global ulong *out) {
