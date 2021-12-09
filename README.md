@@ -90,20 +90,28 @@ passed apply_rescue_permutation tests !
 passed apply_mds tests !
 passed reduce_sum_vec2 tests !
 passed merge tests !
+passed build_merkle_nodes tests !
 
 Rescue Prime Hash Benchmark
 
-  hash_elements		  128 x   128		              341.98 ms		       47909.35 hashes/ sec
-  hash_elements		  256 x   256		             1367.19 ms		       47934.68 hashes/ sec
-  hash_elements		  512 x   512		             5458.55 ms		       48024.44 hashes/ sec
-  hash_elements		 1024 x  1024		            21847.35 ms		       47995.57 hashes/ sec
+  hash_elements		  128 x   128		              345.25 ms		       47455.50 hashes/ sec
+  hash_elements		  256 x   256		             1382.75 ms		       47395.51 hashes/ sec
+  hash_elements		  512 x   512		             5473.14 ms		       47896.49 hashes/ sec
+  hash_elements		 1024 x  1024		            22283.28 ms		       47056.63 hashes/ sec
 
 Rescue Prime Merge Benchmark
 
-          merge		  128 x   128		              341.66 ms		       47953.65 merges/ sec
-          merge		  256 x   256		             1365.31 ms		       48000.99 merges/ sec
-          merge		  512 x   512		             5456.02 ms		       48046.74 merges/ sec
-          merge		 1024 x  1024		            21828.93 ms		       48036.07 merges/ sec
+          merge		  128 x   128		              342.02 ms		       47903.70 merges/ sec
+          merge		  256 x   256		             1369.43 ms		       47856.36 merges/ sec
+          merge		  512 x   512		             5509.15 ms		       47583.40 merges/ sec
+          merge		 1024 x  1024		            21831.19 ms		       48031.09 merges/ sec
+
+Rescue Prime Merkle Tree Benchmark
+
+       merklize		   1048576 leaves		            21846.56 ms
+       merklize		   2097152 leaves		            43669.84 ms
+       merklize		   4194304 leaves		            87320.22 ms
+       merklize		   8388608 leaves		            175640.44 ms
 ```
 
 ### Nvidia Tesla V100 GPU with OpenCL
@@ -125,24 +133,26 @@ passed apply_rescue_permutation tests !
 passed apply_mds tests !
 passed reduce_sum_vec2 tests !
 passed merge tests !
+passed build_merkle_nodes tests !
 
 Rescue Prime Hash Benchmark
 
-  hash_elements		  128 x   128		                2.06 ms		     7960199.00 hashes/ sec
-  hash_elements		  256 x   256		                7.62 ms		     8602150.54 hashes/ sec
-  hash_elements		  512 x   512		               28.00 ms		     9361857.74 hashes/ sec
-  hash_elements		 1024 x  1024		              110.08 ms		     9525758.62 hashes/ sec
-  hash_elements		 2048 x  2048		              409.15 ms		    10251148.12 hashes/ sec
-  hash_elements		 4096 x  4096		             1632.56 ms		    10276623.32 hashes/ sec
-  hash_elements		 8192 x  8192		             6501.65 ms		    10321819.78 hashes/ sec
+  hash_elements		  128 x   128		                2.05 ms		     7992007.99 hashes/ sec
+  hash_elements		  256 x   256		                7.62 ms		     8599838.75 hashes/ sec
+  hash_elements		  512 x   512		               28.02 ms		     9357067.14 hashes/ sec
+  hash_elements		 1024 x  1024		              102.22 ms		    10257848.66 hashes/ sec
 
 Rescue Prime Merge Benchmark
 
-          merge		  128 x   128		                1.94 ms		     8461131.68 merges/ sec
-          merge		  256 x   256		                7.18 ms		     9128512.34 merges/ sec
-          merge		  512 x   512		               26.41 ms		     9926712.94 merges/ sec
-          merge		 1024 x  1024		              105.29 ms		     9958473.94 merges/ sec
-          merge		 2048 x  2048		              419.68 ms		     9994046.52 merges/ sec
-          merge		 4096 x  4096		             1678.35 ms		     9996266.04 merges/ sec
-          merge		 8192 x  8192		             6711.64 ms		     9998883.18 merges/ sec
+          merge		  128 x   128		                1.93 ms		     8474576.27 merges/ sec
+          merge		  256 x   256		                7.15 ms		     9169054.44 merges/ sec
+          merge		  512 x   512		               26.40 ms		     9930948.87 merges/ sec
+          merge		 1024 x  1024		              105.11 ms		     9975548.22 merges/ sec
+
+Rescue Prime Merkle Tree Benchmark
+
+       merklize		   1048576 leaves		              130.50 ms
+       merklize		   2097152 leaves		              235.47 ms
+       merklize		   4194304 leaves		              445.62 ms
+       merklize		   8388608 leaves		              864.30 ms
 ```
