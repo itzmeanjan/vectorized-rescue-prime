@@ -73,7 +73,8 @@ cl_int bench_merge(cl_context ctx, cl_command_queue cq, cl_kernel krnl,
 
 cl_int bench_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
                                 cl_kernel merge_krnl, cl_kernel tip_krnl,
-                                size_t global_size, size_t local_size) {
+                                size_t global_size, size_t local_size,
+                                const size_t dev_mem_base_addr_align) {
   cl_int status;
 
   const size_t io_width = 4;
@@ -86,8 +87,9 @@ cl_int bench_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   random_field_elements(in_arr, in_size / sizeof(cl_ulong));
 
   cl_ulong ts;
-  status = build_merkle_nodes(ctx, cq, merge_krnl, tip_krnl, in_arr, out_arr,
-                              global_size, local_size, &ts);
+  status =
+      build_merkle_nodes(ctx, cq, merge_krnl, tip_krnl, in_arr, out_arr,
+                         global_size, local_size, &ts, dev_mem_base_addr_align);
   check(status);
 
   printf("%15s\t\t%10lu\t\t%20.2f ms\n", "merklize", global_size,
@@ -102,28 +104,28 @@ cl_int bench_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
 cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
                           cl_kernel merge_krnl, cl_kernel tip_krnl,
                           cl_ulong *in, cl_ulong *out, const size_t leave_count,
-                          const size_t wg_size, cl_ulong *ts) {
+                          const size_t wg_size, cl_ulong *ts,
+                          const size_t dev_mem_base_addr_align) {
   // leave count of merkle tree should be power of 2
   assert((leave_count & (leave_count - 1ul)) == 0);
-  // intermediate nodes of tree those can be computed in parallel
+  // intermediate nodes of tree, living just above leaves,
+  // those can be computed in parallel
   //
   // to be specific
   // https://github.com/novifinancial/winterfell/blob/377e916c47fab3d9fa173b2f6123c7b713ffce03/crypto/src/merkle/mod.rs#L326-L329
   // section
-  const size_t itmd_par_node_cnt = leave_count >> 1;
-  const size_t subtree_cnt = itmd_par_node_cnt >> 1;
-  assert(itmd_par_node_cnt >= wg_size);
-  assert(subtree_cnt >= wg_size);
+  assert((leave_count >> 1) >= wg_size);
   // input/ output both are 4-field element wide
-  // rescue prime hash digests, stored in consequtive memory locations
+  // rescue prime hash digests, stored in consequtive
+  // memory locations
   const size_t io_width = 4ul;
   const size_t in_size = io_width * leave_count * sizeof(cl_ulong);
   const size_t out_size = io_width * leave_count * sizeof(cl_ulong);
-  const size_t itmd_size_0 = io_width * itmd_par_node_cnt * sizeof(cl_ulong);
-  const size_t itmd_size_1 = io_width * subtree_cnt * sizeof(cl_ulong);
 
   cl_int status;
 
+  // following three buffers are unchanged during execution of this function
+  // these're required to be copied one time
   cl_mem mds_buf =
       clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(MDS), NULL, &status);
   check(status);
@@ -136,59 +138,19 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
 
   cl_mem in_buf = clCreateBuffer(ctx, CL_MEM_READ_ONLY, in_size, NULL, &status);
   check(status);
+  // whole output buffer, allocated on device memory, this buffer will be
+  // sub-divided multiple times, in following section
   cl_mem out_buf =
       clCreateBuffer(ctx, CL_MEM_READ_WRITE, out_size, NULL, &status);
   check(status);
 
-  cl_buffer_region out_sub_buf_reg_0;
-  out_sub_buf_reg_0.origin = itmd_size_0;
-  out_sub_buf_reg_0.size = itmd_size_0;
+  cl_buffer_region sub_buf_reg;
+  sub_buf_reg.origin = (leave_count >> 1) * io_width * sizeof(cl_ulong);
+  sub_buf_reg.size = (leave_count >> 1) * io_width * sizeof(cl_ulong);
 
-  // here this subbuffer to be written to
-  cl_mem out_buf_0 = clCreateSubBuffer(out_buf, CL_MEM_WRITE_ONLY,
-                                       CL_BUFFER_CREATE_TYPE_REGION,
-                                       &out_sub_buf_reg_0, &status);
-  check(status);
-
-  // then I'll dispatch another kernel ( actually same `merge` kernel but with
-  // different operands ) for reading already computed intermediate nodes (
-  // level just above leaf ) and computing next level, which I'll finally write
-  // to following subbuffer
-  cl_buffer_region out_sub_buf_reg_1;
-  out_sub_buf_reg_1.origin = itmd_size_0;
-  out_sub_buf_reg_1.size = itmd_size_0;
-
-  cl_mem in_buf_0 =
-      clCreateSubBuffer(out_buf, CL_MEM_READ_ONLY, CL_BUFFER_CREATE_TYPE_REGION,
-                        &out_sub_buf_reg_1, &status);
-  check(status);
-
-  // another region of original output buffer where some output to be written
-  // these are next level of intermediate nodes
-  cl_buffer_region out_sub_buf_reg_2;
-  out_sub_buf_reg_2.origin = itmd_size_1;
-  out_sub_buf_reg_2.size = itmd_size_1;
-
-  cl_mem out_buf_1 = clCreateSubBuffer(out_buf, CL_MEM_WRITE_ONLY,
-                                       CL_BUFFER_CREATE_TYPE_REGION,
-                                       &out_sub_buf_reg_2, &status);
-  check(status);
-
-  // this region of output buffer to be both read and written
-  // during execution of `build_merkle_tree_tip_seq` kernel where
-  // only single work-item does something useful, which is why I also
-  // dispatch single work-item to complete desirec job on device
-  //
-  // this is done due to (somewhat) complicated access pattern
-  // when computing tip of merkle tree, which is hard to parallelize and
-  // unnecessarily increases cost of computation
-  cl_buffer_region in_out_buf_reg;
-  in_out_buf_reg.origin = 0;
-  in_out_buf_reg.size = itmd_size_0;
-
-  cl_mem in_out_buf =
-      clCreateSubBuffer(out_buf, CL_MEM_READ_WRITE,
-                        CL_BUFFER_CREATE_TYPE_REGION, &in_out_buf_reg, &status);
+  cl_mem out_sub_buf_ =
+      clCreateSubBuffer(out_buf, CL_MEM_WRITE_ONLY,
+                        CL_BUFFER_CREATE_TYPE_REGION, &sub_buf_reg, &status);
   check(status);
 
   status = clSetKernelArg(merge_krnl, 0, sizeof(cl_mem), &in_buf);
@@ -199,7 +161,7 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   check(status);
   status = clSetKernelArg(merge_krnl, 3, sizeof(cl_mem), &ark2_buf);
   check(status);
-  status = clSetKernelArg(merge_krnl, 4, sizeof(cl_mem), &out_buf_0);
+  status = clSetKernelArg(merge_krnl, 4, sizeof(cl_mem), &out_sub_buf_);
   check(status);
 
   cl_event evt_0;
@@ -222,7 +184,7 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
                                 0, NULL, &evt_3);
   check(status);
 
-  size_t global_size_0[] = {1, itmd_par_node_cnt};
+  size_t global_size_0[] = {1, leave_count >> 1};
   size_t local_size_0[] = {1, wg_size};
   cl_event evts_0[] = {evt_0, evt_1, evt_2, evt_3};
 
@@ -231,61 +193,140 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
                                   local_size_0, 4, evts_0, &evt_4);
   check(status);
 
-  status = clSetKernelArg(merge_krnl, 0, sizeof(cl_mem), &in_buf_0);
-  check(status);
-  status = clSetKernelArg(merge_krnl, 1, sizeof(cl_mem), &mds_buf);
-  check(status);
-  status = clSetKernelArg(merge_krnl, 2, sizeof(cl_mem), &ark1_buf);
-  check(status);
-  status = clSetKernelArg(merge_krnl, 3, sizeof(cl_mem), &ark2_buf);
-  check(status);
-  status = clSetKernelArg(merge_krnl, 4, sizeof(cl_mem), &out_buf_1);
-  check(status);
+  // intermediate nodes in tip of tree, to be computed sequentially
+  const size_t subtree_count = (dev_mem_base_addr_align >> 5);
+  // data parallel intermediate node compute stages, where n-th one
+  // depends on completion of (n-1)-th
+  const size_t rounds =
+      (size_t)log2((double)((leave_count >> 1) / subtree_count));
 
-  size_t global_size_1[] = {1, subtree_cnt};
-  size_t local_size_1[] = {1, wg_size};
+  cl_event *evts_1 = malloc(sizeof(cl_event) * rounds);
+  cl_mem *rd_sub_bufs = malloc(sizeof(cl_mem) * rounds);
+  cl_mem *wr_sub_bufs = malloc(sizeof(cl_mem) * rounds);
 
-  cl_event evt_5;
-  status = clEnqueueNDRangeKernel(cq, merge_krnl, 2, NULL, global_size_1,
-                                  local_size_1, 1, &evt_4, &evt_5);
-  check(status);
+  for (size_t i = leave_count >> 1, idx = 0;
+       (i >> 1) * io_width * sizeof(cl_ulong) >= dev_mem_base_addr_align;
+       i >>= 1, idx++) {
+    cl_buffer_region sub_buf_reg_0;
+    sub_buf_reg_0.origin = i * io_width * sizeof(cl_ulong);
+    sub_buf_reg_0.size = i * io_width * sizeof(cl_ulong);
 
-  cl_mem num_subtrees_buf =
-      clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(size_t), NULL, &status);
-  check(status);
+    cl_mem in_sub_buf = clCreateSubBuffer(out_buf, CL_MEM_READ_ONLY,
+                                          CL_BUFFER_CREATE_TYPE_REGION,
+                                          &sub_buf_reg_0, &status);
+    check(status);
+    rd_sub_bufs[idx] = in_sub_buf;
 
-  status = clSetKernelArg(tip_krnl, 0, sizeof(cl_mem), &in_out_buf);
-  check(status);
-  status = clSetKernelArg(tip_krnl, 1, sizeof(cl_mem), &num_subtrees_buf);
-  check(status);
-  status = clSetKernelArg(tip_krnl, 2, sizeof(cl_mem), &mds_buf);
-  check(status);
-  status = clSetKernelArg(tip_krnl, 3, sizeof(cl_mem), &ark1_buf);
-  check(status);
-  status = clSetKernelArg(tip_krnl, 4, sizeof(cl_mem), &ark2_buf);
-  check(status);
+    cl_buffer_region sub_buf_reg_1;
+    sub_buf_reg_1.origin = (i >> 1) * io_width * sizeof(cl_ulong);
+    sub_buf_reg_1.size = (i >> 1) * io_width * sizeof(cl_ulong);
 
-  cl_event evt_6;
-  status = clEnqueueWriteBuffer(cq, num_subtrees_buf, CL_FALSE, 0,
-                                sizeof(size_t), &subtree_cnt, 0, NULL, &evt_6);
-  check(status);
+    cl_mem out_sub_buf = clCreateSubBuffer(out_buf, CL_MEM_WRITE_ONLY,
+                                           CL_BUFFER_CREATE_TYPE_REGION,
+                                           &sub_buf_reg_1, &status);
+    check(status);
+    wr_sub_bufs[idx] = out_sub_buf;
 
-  size_t global_size_2[] = {1};
-  size_t local_size_2[] = {1};
-  cl_event evts_1[] = {evt_5, evt_6};
+    status = clSetKernelArg(merge_krnl, 0, sizeof(cl_mem), &in_sub_buf);
+    check(status);
+    status = clSetKernelArg(merge_krnl, 1, sizeof(cl_mem), &mds_buf);
+    check(status);
+    status = clSetKernelArg(merge_krnl, 2, sizeof(cl_mem), &ark1_buf);
+    check(status);
+    status = clSetKernelArg(merge_krnl, 3, sizeof(cl_mem), &ark2_buf);
+    check(status);
+    status = clSetKernelArg(merge_krnl, 4, sizeof(cl_mem), &out_sub_buf);
+    check(status);
 
-  cl_event evt_7;
-  status = clEnqueueNDRangeKernel(cq, tip_krnl, 1, NULL, global_size_2,
-                                  local_size_2, 2, evts_1, &evt_7);
-  check(status);
+    size_t global_size_1[] = {1, i >> 1};
+    // make sure work-group size is compatible with work-size in this iteration
+    size_t local_size_1[] = {1, (i >> 1) >= wg_size ? wg_size : (i >> 1)};
 
-  cl_event evt_8;
-  status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, out_size, out, 1,
-                               &evt_7, &evt_8);
-  check(status);
+    cl_event evt_;
+    status = clEnqueueNDRangeKernel(
+        cq, merge_krnl, 2, NULL, global_size_1, local_size_1, 1,
+        idx == 0 ? &evt_4 : evts_1 + (idx - 1), &evt_);
+    check(status);
 
-  status = clWaitForEvents(1, &evt_8);
-  check(status);
+    evts_1[idx] = evt_;
+  }
+
+  cl_ulong ts_ = 0;
+  if (subtree_count > 1) {
+    cl_buffer_region sub_buf_reg_0;
+    sub_buf_reg_0.origin = 0;
+    sub_buf_reg_0.size = (subtree_count << 1) * io_width * sizeof(cl_ulong);
+
+    cl_mem in_out_sub_buf = clCreateSubBuffer(out_buf, CL_MEM_READ_WRITE,
+                                              CL_BUFFER_CREATE_TYPE_REGION,
+                                              &sub_buf_reg_0, &status);
+    check(status);
+
+    cl_mem subtree_count_buf =
+        clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(size_t), NULL, &status);
+    check(status);
+
+    cl_event evt_5;
+    status =
+        clEnqueueWriteBuffer(cq, subtree_count_buf, CL_FALSE, 0, sizeof(size_t),
+                             &subtree_count, 0, NULL, &evt_5);
+    check(status);
+
+    status = clSetKernelArg(tip_krnl, 0, sizeof(cl_mem), &in_out_sub_buf);
+    check(status);
+    status = clSetKernelArg(tip_krnl, 1, sizeof(cl_mem), &subtree_count_buf);
+    check(status);
+    status = clSetKernelArg(tip_krnl, 2, sizeof(cl_mem), &mds_buf);
+    check(status);
+    status = clSetKernelArg(tip_krnl, 3, sizeof(cl_mem), &ark1_buf);
+    check(status);
+    status = clSetKernelArg(tip_krnl, 4, sizeof(cl_mem), &ark2_buf);
+    check(status);
+
+    size_t global_size_2[] = {1};
+    size_t local_size_2[] = {1};
+    cl_event evts_2[] = {*(evts_1 + (rounds - 1)), evt_5};
+    cl_event evt_6;
+    status = clEnqueueNDRangeKernel(cq, tip_krnl, 1, NULL, global_size_2,
+                                    local_size_2, 2, evts_2, &evt_6);
+    check(status);
+
+    cl_event evt_7;
+    status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, out_size, out, 1,
+                                 &evt_6, &evt_7);
+    check(status);
+
+    status = clWaitForEvents(1, &evt_7);
+    check(status);
+
+    cl_ulong start, end;
+    status = clGetEventProfilingInfo(evt_6, CL_PROFILING_COMMAND_START,
+                                     sizeof(cl_ulong), &start, NULL);
+    status = clGetEventProfilingInfo(evt_6, CL_PROFILING_COMMAND_END,
+                                     sizeof(cl_ulong), &end, NULL);
+    ts_ += (end - start);
+
+    status = clReleaseEvent(evt_5);
+    check(status);
+    status = clReleaseEvent(evt_6);
+    check(status);
+    status = clReleaseEvent(evt_7);
+    check(status);
+
+    status = clReleaseMemObject(subtree_count_buf);
+    status = clReleaseMemObject(in_out_sub_buf);
+  } else {
+    cl_event evt_5;
+    status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, out_size, out, 1,
+                                 evts_1 + (rounds - 1), &evt_5);
+    check(status);
+
+    status = clWaitForEvents(1, &evt_5);
+    check(status);
+
+    status = clReleaseEvent(evt_5);
+    check(status);
+  }
 
   // compute total execution time of all three kernels
   // which are dispatched for computing intermediate nodes of merkle tree
@@ -299,17 +340,16 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
                                      sizeof(cl_ulong), &end, NULL);
     *ts += (end - start);
 
-    status = clGetEventProfilingInfo(evt_5, CL_PROFILING_COMMAND_START,
-                                     sizeof(cl_ulong), &start, NULL);
-    status = clGetEventProfilingInfo(evt_5, CL_PROFILING_COMMAND_END,
-                                     sizeof(cl_ulong), &end, NULL);
-    *ts += (end - start);
+    for (size_t i = 0; i < rounds; i++) {
+      status =
+          clGetEventProfilingInfo(*(evts_1 + i), CL_PROFILING_COMMAND_START,
+                                  sizeof(cl_ulong), &start, NULL);
+      status = clGetEventProfilingInfo(*(evts_1 + i), CL_PROFILING_COMMAND_END,
+                                       sizeof(cl_ulong), &end, NULL);
+      *ts += (end - start);
+    }
 
-    status = clGetEventProfilingInfo(evt_7, CL_PROFILING_COMMAND_START,
-                                     sizeof(cl_ulong), &start, NULL);
-    status = clGetEventProfilingInfo(evt_7, CL_PROFILING_COMMAND_END,
-                                     sizeof(cl_ulong), &end, NULL);
-    *ts += (end - start);
+    *ts += ts_;
   }
 
   clReleaseEvent(evt_0);
@@ -317,27 +357,30 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   clReleaseEvent(evt_2);
   clReleaseEvent(evt_3);
   clReleaseEvent(evt_4);
-  clReleaseEvent(evt_5);
-  clReleaseEvent(evt_6);
-  clReleaseEvent(evt_7);
-  clReleaseEvent(evt_8);
 
+  for (size_t i = 0; i < rounds; i++) {
+    clReleaseEvent(*(evts_1 + i));
+    clReleaseMemObject(*(rd_sub_bufs + i));
+    clReleaseMemObject(*(wr_sub_bufs + i));
+  }
+
+  clReleaseMemObject(out_sub_buf_);
   clReleaseMemObject(in_buf);
   clReleaseMemObject(out_buf);
-  clReleaseMemObject(out_buf_0);
-  clReleaseMemObject(in_buf_0);
-  clReleaseMemObject(out_buf_1);
-  clReleaseMemObject(in_out_buf);
-  clReleaseMemObject(num_subtrees_buf);
   clReleaseMemObject(mds_buf);
   clReleaseMemObject(ark1_buf);
   clReleaseMemObject(ark2_buf);
+
+  free(evts_1);
+  free(rd_sub_bufs);
+  free(wr_sub_bufs);
 
   return CL_SUCCESS;
 }
 
 cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
-                               cl_kernel merge_krnl, cl_kernel tip_kernel) {
+                               cl_kernel merge_krnl, cl_kernel tip_kernel,
+                               const size_t dev_mem_base_addr_align) {
   cl_int status;
 
   // leave count of merkle tree
@@ -363,7 +406,7 @@ cl_int test_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
 
   // compute merkle tree intermediate nodes, to be asserted in next few steps
   status = build_merkle_nodes(ctx, cq, merge_krnl, tip_kernel, in, out_0, N, 1,
-                              NULL);
+                              NULL, dev_mem_base_addr_align);
   check(status);
 
   // Assume A = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
