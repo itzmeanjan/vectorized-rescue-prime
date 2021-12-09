@@ -1,6 +1,8 @@
 #include <utils.h>
 
-cl_int find_device(cl_device_id *device_id) {
+cl_int
+find_device(cl_device_id* device_id)
+{
   // just reset all bytes for safety !
   memset(device_id, 0, sizeof(cl_device_id));
 
@@ -16,7 +18,7 @@ cl_int find_device(cl_device_id *device_id) {
     return CL_DEVICE_NOT_FOUND;
   }
 
-  cl_platform_id *platforms = malloc(sizeof(cl_platform_id) * num_platforms);
+  cl_platform_id* platforms = malloc(sizeof(cl_platform_id) * num_platforms);
   status = clGetPlatformIDs(num_platforms, platforms, NULL);
   if (status != CL_SUCCESS) {
     return status;
@@ -36,9 +38,9 @@ cl_int find_device(cl_device_id *device_id) {
       continue;
     }
 
-    cl_device_id *devices = malloc(sizeof(cl_device_id) * num_devices);
+    cl_device_id* devices = malloc(sizeof(cl_device_id) * num_devices);
     status =
-        clGetDeviceIDs(*(platforms + i), dev_type, num_devices, devices, NULL);
+      clGetDeviceIDs(*(platforms + i), dev_type, num_devices, devices, NULL);
     if (status != CL_SUCCESS) {
       free(devices);
       continue;
@@ -54,23 +56,27 @@ cl_int find_device(cl_device_id *device_id) {
   return CL_DEVICE_NOT_FOUND;
 }
 
-cl_int build_kernel(cl_context ctx, cl_device_id dev_id, char *kernel,
-                    cl_program *prgm) {
+cl_int
+build_kernel(cl_context ctx,
+             cl_device_id dev_id,
+             char* kernel,
+             cl_program* prgm)
+{
   cl_int status;
 
-  FILE *fd = fopen(kernel, "r");
+  FILE* fd = fopen(kernel, "r");
   fseek(fd, 0, SEEK_END);
   size_t size = ftell(fd);
   fseek(fd, 0, SEEK_SET);
 
-  char *kernel_src = malloc(sizeof(char) * size);
+  char* kernel_src = malloc(sizeof(char) * size);
   size_t n = fread(kernel_src, sizeof(char), size, fd);
 
   assert(n == size);
   fclose(fd);
 
   cl_program prgm_ = clCreateProgramWithSource(
-      ctx, 1, (const char **)&kernel_src, &size, &status);
+    ctx, 1, (const char**)&kernel_src, &size, &status);
   if (status != CL_SUCCESS) {
     return status;
   }
@@ -86,43 +92,52 @@ cl_int build_kernel(cl_context ctx, cl_device_id dev_id, char *kernel,
   return CL_SUCCESS;
 }
 
-cl_int show_build_log(cl_device_id dev_id, cl_program prgm) {
+cl_int
+show_build_log(cl_device_id dev_id, cl_program prgm)
+{
   cl_int status;
 
   size_t log_size;
-  status = clGetProgramBuildInfo(prgm, dev_id, CL_PROGRAM_BUILD_LOG, 0, NULL,
-                                 &log_size);
+  status = clGetProgramBuildInfo(
+    prgm, dev_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
   if (status != CL_SUCCESS) {
     return status;
   }
 
-  void *log = malloc(log_size);
-  status = clGetProgramBuildInfo(prgm, dev_id, CL_PROGRAM_BUILD_LOG, log_size,
-                                 log, NULL);
+  void* log = malloc(log_size);
+  status = clGetProgramBuildInfo(
+    prgm, dev_id, CL_PROGRAM_BUILD_LOG, log_size, log, NULL);
   if (status != CL_SUCCESS) {
     free(log);
     return status;
   }
 
-  printf("\nkernel build log:\n%s\n\n", (char *)log);
+  printf("\nkernel build log:\n%s\n\n", (char*)log);
   free(log);
 
   return CL_SUCCESS;
 }
 
-void random_field_elements(cl_ulong *in, size_t count) {
+void
+random_field_elements(cl_ulong* in, size_t count)
+{
   for (size_t i = 0; i < count; i++) {
     *(in + i) = (cl_ulong)rand();
   }
 }
 
-cl_int device_memory_base_address_alignment(cl_device_id dev_id,
-                                            size_t *mem_base_addr_align) {
+cl_int
+device_memory_base_address_alignment(cl_device_id dev_id,
+                                     size_t* mem_base_addr_align)
+{
   cl_int status;
   cl_uint mem_base_addr_align_;
   // this value is in terms of bits
-  status = clGetDeviceInfo(dev_id, CL_DEVICE_MEM_BASE_ADDR_ALIGN,
-                           sizeof(cl_uint), &mem_base_addr_align_, NULL);
+  status = clGetDeviceInfo(dev_id,
+                           CL_DEVICE_MEM_BASE_ADDR_ALIGN,
+                           sizeof(cl_uint),
+                           &mem_base_addr_align_,
+                           NULL);
   check(status);
 
   // so converting into bytes

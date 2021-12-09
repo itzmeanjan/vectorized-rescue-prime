@@ -1,6 +1,8 @@
 #include <rescue_prime.h>
 
-int main() {
+int
+main()
+{
   cl_int status;
 
   cl_device_id dev_id;
@@ -17,14 +19,14 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  void *dev_name = malloc(val_size);
+  void* dev_name = malloc(val_size);
   status = clGetDeviceInfo(dev_id, CL_DEVICE_NAME, val_size, dev_name, NULL);
   if (status != CL_SUCCESS) {
     printf("failed to get device name !\n");
     return EXIT_FAILURE;
   }
 
-  printf("running on %s\n", (char *)dev_name);
+  printf("running on %s\n", (char*)dev_name);
 
   cl_context ctx = clCreateContext(NULL, 1, &dev_id, NULL, NULL, &status);
   if (status != CL_SUCCESS) {
@@ -34,10 +36,11 @@ int main() {
 
   // enable profiling in queue, so that more precise execution time calculation
   // can be done
-  cl_queue_properties props[] = {CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE,
-                                 0};
+  cl_queue_properties props[] = { CL_QUEUE_PROPERTIES,
+                                  CL_QUEUE_PROFILING_ENABLE,
+                                  0 };
   cl_command_queue c_queue =
-      clCreateCommandQueueWithProperties(ctx, dev_id, props, &status);
+    clCreateCommandQueueWithProperties(ctx, dev_id, props, &status);
   if (status != CL_SUCCESS) {
     printf("failed to create command queue !\n");
     return EXIT_FAILURE;
@@ -77,7 +80,7 @@ int main() {
   check(status);
 
   cl_kernel krnl_2 =
-      clCreateKernel(prgm, "test_apply_rescue_permutation", &status);
+    clCreateKernel(prgm, "test_apply_rescue_permutation", &status);
   if (status != CL_SUCCESS) {
     printf("failed to create `test_apply_rescue_permutation` kernel !\n");
     return EXIT_FAILURE;
@@ -127,20 +130,20 @@ int main() {
 
   size_t dev_mem_base_addr_align;
   status =
-      device_memory_base_address_alignment(dev_id, &dev_mem_base_addr_align);
+    device_memory_base_address_alignment(dev_id, &dev_mem_base_addr_align);
   if (status != CL_SUCCESS) {
     printf("failed to get device memory base address alignment !\n");
     return EXIT_FAILURE;
   }
 
-  status = test_build_merkle_nodes(ctx, c_queue, krnl_6, krnl_7,
-                                   dev_mem_base_addr_align);
+  status = test_build_merkle_nodes(
+    ctx, c_queue, krnl_6, krnl_7, dev_mem_base_addr_align);
   check(status);
 
   printf("\nRescue Prime Hash Benchmark\n\n");
   for (size_t i = 7; i < 11; i++) {
     status =
-        bench_hash_elements(ctx, c_queue, krnl_5, 1ul << i, 1ul << i, 1, 128);
+      bench_hash_elements(ctx, c_queue, krnl_5, 1ul << i, 1ul << i, 1, 128);
     check(status);
   }
   printf("\nRescue Prime Merge Benchmark\n\n");
@@ -150,8 +153,8 @@ int main() {
   }
   printf("\nRescue Prime Merkle Tree Benchmark\n\n");
   for (size_t i = 20; i < 24; i++) {
-    status = bench_build_merkle_nodes(ctx, c_queue, krnl_6, krnl_7, 1ul << i,
-                                      128, dev_mem_base_addr_align);
+    status = bench_build_merkle_nodes(
+      ctx, c_queue, krnl_6, krnl_7, 1ul << i, 128, dev_mem_base_addr_align);
     check(status);
   }
 

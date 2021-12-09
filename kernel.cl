@@ -13,7 +13,9 @@ constant ulong DIGEST_WIDTH = 4ul;
 // https://github.com/itzmeanjan/ff-gpu/blob/7ad664cff8713b5e6bfe5527531a7532e33abd47/ff_p.cpp#L44-L70
 // where I performed same modular multiplication of two 64-bit prime field
 // elements, here I extend that to work on vector of length 16
-inline ulong16 vec_mul_ff_p64(ulong16 a, ulong16 b) {
+inline ulong16
+vec_mul_ff_p64(ulong16 a, ulong16 b)
+{
   ulong16 ab = a * b;
   ulong16 cd = mul_hi(a, b);
   ulong16 c = cd & 0x00000000ffffffff;
@@ -39,7 +41,9 @@ inline ulong16 vec_mul_ff_p64(ulong16 a, ulong16 b) {
 // This function is adapted implementation of scalar modular addition
 // routine
 // https://github.com/itzmeanjan/ff-gpu/blob/7ad664cff8713b5e6bfe5527531a7532e33abd47/ff_p.cpp#L4-L22
-inline ulong16 vec_add_ff_p64(ulong16 a, ulong16 b) {
+inline ulong16
+vec_add_ff_p64(ulong16 a, ulong16 b)
+{
   // instead of doing b % MOD, I'm executing
   // next 4 instructions
   //
@@ -69,7 +73,9 @@ inline ulong16 vec_add_ff_p64(ulong16 a, ulong16 b) {
 //
 // I adapted it from
 // https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L43-L50
-inline ulong16 apply_sbox(ulong16 state) {
+inline ulong16
+apply_sbox(ulong16 state)
+{
   // element-wise multiplication of vectors, so I've {a ^ 2 ∀ a ∈ state}
   ulong16 state2 = vec_mul_ff_p64(state, state);
   // element-wise multiplication of vectors, so I've {a ^ 4 ∀ a ∈ state}
@@ -81,7 +87,9 @@ inline ulong16 apply_sbox(ulong16 state) {
   return vec_mul_ff_p64(state, state6);
 }
 
-__kernel void test_apply_sbox(__global ulong16 *in, __global ulong16 *out) {
+__kernel void
+test_apply_sbox(__global ulong16* in, __global ulong16* out)
+{
   const size_t idx = get_global_id(0);
   out[idx] = apply_sbox(in[idx]);
 }
@@ -91,7 +99,9 @@ __kernel void test_apply_sbox(__global ulong16 *in, __global ulong16 *out) {
 //
 // Simply adapted from
 // https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L65-L69
-inline ulong16 apply_constants(ulong16 state, ulong16 cnst) {
+inline ulong16
+apply_constants(ulong16 state, ulong16 cnst)
+{
   return vec_add_ff_p64(state, cnst);
 }
 
@@ -105,7 +115,9 @@ inline ulong16 apply_constants(ulong16 state, ulong16 cnst) {
 //
 // Just the difference is two operands ( i.e. scalars ) are stored in .x and .y
 // component of two-element vector
-inline ulong reduce_sum_vec2(ulong2 state) {
+inline ulong
+reduce_sum_vec2(ulong2 state)
+{
   int over_0 = state.y >= MOD;
   ulong tmp_0 = as_uint(over_0) * MOD;
   ulong b_ok = state.y - tmp_0;
@@ -121,7 +133,9 @@ inline ulong reduce_sum_vec2(ulong2 state) {
   return tmp_3 + tmp_4;
 }
 
-__kernel void test_reduce_sum_vec2(__global ulong2 *in, __global ulong *out) {
+__kernel void
+test_reduce_sum_vec2(__global ulong2* in, __global ulong* out)
+{
   const size_t idx = get_global_id(0);
   out[idx] = reduce_sum_vec2(in[idx]);
 }
@@ -135,7 +149,9 @@ __kernel void test_reduce_sum_vec2(__global ulong2 *in, __global ulong *out) {
 // then it does v1 = reduce_sum_vec2(a[2:])
 //
 // Finally it returns reduce_sum_vec2({v0, v1})
-inline ulong reduce_sum_vec4(ulong4 state) {
+inline ulong
+reduce_sum_vec4(ulong4 state)
+{
   // select two elements of 4-element vector
   // and accumulate them into single element
   ulong v0 = reduce_sum_vec2(state.xy);
@@ -167,7 +183,9 @@ inline ulong reduce_sum_vec4(ulong4 state) {
 // v3 = 0
 //
 // Returns reduce_sum_vec4({v0, v1, v2, v3})
-inline ulong reduce_sum(ulong16 state) {
+inline ulong
+reduce_sum(ulong16 state)
+{
   ulong v0 = reduce_sum_vec4(state.s0123);
   ulong v1 = reduce_sum_vec4(state.s4567);
   ulong v2 = reduce_sum_vec4(state.s89ab);
@@ -186,7 +204,9 @@ inline ulong reduce_sum(ulong16 state) {
 // I adapted
 // https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L52-L63
 // here for vectorizing operations on hash state
-inline ulong16 apply_mds(ulong16 state, __global ulong16 mds[12]) {
+inline ulong16
+apply_mds(ulong16 state, __global ulong16 mds[12])
+{
   ulong v0 = reduce_sum(vec_mul_ff_p64(state, mds[0]));
   ulong v1 = reduce_sum(vec_mul_ff_p64(state, mds[1]));
   ulong v2 = reduce_sum(vec_mul_ff_p64(state, mds[2]));
@@ -206,12 +226,15 @@ inline ulong16 apply_mds(ulong16 state, __global ulong16 mds[12]) {
   // because anyway they don't contribute, they're just
   // appended data to write simpler code operating on single
   // ulong16, instead of two vectors i.e. ulong8, ulong4
-  return (ulong16)(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, va, vb, 0ul, 0ul,
-                   0ul, 0ul);
+  return (ulong16)(
+    v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, va, vb, 0ul, 0ul, 0ul, 0ul);
 }
 
-__kernel void test_apply_mds(__global ulong16 *in, __global ulong16 *out,
-                             __global ulong16 mds[12]) {
+__kernel void
+test_apply_mds(__global ulong16* in,
+               __global ulong16* out,
+               __global ulong16 mds[12])
+{
   const size_t idx = get_global_id(0);
   out[idx] = apply_mds(in[idx], mds);
 }
@@ -222,7 +245,9 @@ __kernel void test_apply_mds(__global ulong16 *in, __global ulong16 *out,
 // Adapted from
 // https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L107-L122
 // just vectorized here
-inline ulong16 exp_acc(const ulong m, ulong16 base, ulong16 tail) {
+inline ulong16
+exp_acc(const ulong m, ulong16 base, ulong16 tail)
+{
   ulong16 res = base;
 
   for (ulong i = 0; i < m; i++) {
@@ -240,7 +265,9 @@ inline ulong16 exp_acc(const ulong m, ulong16 base, ulong16 tail) {
 //
 // Originally I took inspiration from
 // https://github.com/novifinancial/winterfell/blob/4eeb4670387f3682fa0841e09cdcbe1d43302bf3/crypto/src/hash/rescue/rp64_256/mod.rs#L285-L318
-inline ulong16 apply_inv_sbox(ulong16 state) {
+inline ulong16
+apply_inv_sbox(ulong16 state)
+{
   ulong16 t1 = vec_mul_ff_p64(state, state);
   ulong16 t2 = vec_mul_ff_p64(t1, t1);
 
@@ -259,7 +286,9 @@ inline ulong16 apply_inv_sbox(ulong16 state) {
   return vec_mul_ff_p64(a, b);
 }
 
-__kernel void test_apply_inv_sbox(__global ulong16 *in, __global ulong16 *out) {
+__kernel void
+test_apply_inv_sbox(__global ulong16* in, __global ulong16* out)
+{
   const size_t idx = get_global_id(0);
   out[idx] = apply_inv_sbox(in[idx]);
 }
@@ -268,8 +297,12 @@ __kernel void test_apply_inv_sbox(__global ulong16 *in, __global ulong16 *out) {
 //
 // Adapted from
 // https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L33-L41
-inline ulong16 apply_permutation_round(ulong16 state, __global ulong16 mds[12],
-                                       ulong16 ark1, ulong16 ark2) {
+inline ulong16
+apply_permutation_round(ulong16 state,
+                        __global ulong16 mds[12],
+                        ulong16 ark1,
+                        ulong16 ark2)
+{
   state = apply_sbox(state);
   state = apply_mds(state, mds);
   state = apply_constants(state, ark1);
@@ -286,20 +319,25 @@ inline ulong16 apply_permutation_round(ulong16 state, __global ulong16 mds[12],
 //
 // I already implemented same in SYC/ DPC++
 // https://github.com/itzmeanjan/ff-gpu/blob/9c57cb13e4b2d96a084da96d558fe3d4707bfcb7/rescue_prime.cpp#L27-L31
-ulong16 apply_rescue_permutation(ulong16 state, __global ulong16 mds[12],
-                                 __global ulong16 ark1[7],
-                                 __global ulong16 ark2[7]) {
+ulong16
+apply_rescue_permutation(ulong16 state,
+                         __global ulong16 mds[12],
+                         __global ulong16 ark1[7],
+                         __global ulong16 ark2[7])
+{
   for (ulong i = 0; i < NUM_ROUNDS; i++) {
     state = apply_permutation_round(state, mds, ark1[i], ark2[i]);
   }
   return state;
 }
 
-__kernel void test_apply_rescue_permutation(__global ulong16 *in,
-                                            __global ulong16 *out,
-                                            __global ulong16 mds[12],
-                                            __global ulong16 ark1[7],
-                                            __global ulong16 ark2[7]) {
+__kernel void
+test_apply_rescue_permutation(__global ulong16* in,
+                              __global ulong16* out,
+                              __global ulong16 mds[12],
+                              __global ulong16 ark1[7],
+                              __global ulong16 ark2[7])
+{
   const size_t idx = get_global_id(0);
   out[idx] = apply_rescue_permutation(in[idx], mds, ark1, ark2);
 }
@@ -320,9 +358,14 @@ __kernel void test_apply_rescue_permutation(__global ulong16 *in,
 //
 // You may want to take a look at
 // https://github.com/novifinancial/winterfell/tree/4eeb4670387f3682fa0841e09cdcbe1d43302bf3/crypto#rescue-hash-function-implementation
-__kernel void hash_elements(__global ulong *in, __constant size_t *size,
-                            __global ulong16 mds[12], __global ulong16 ark1[7],
-                            __global ulong16 ark2[7], __global ulong *out) {
+__kernel void
+hash_elements(__global ulong* in,
+              __constant size_t* size,
+              __global ulong16 mds[12],
+              __global ulong16 ark1[7],
+              __global ulong16 ark2[7],
+              __global ulong* out)
+{
   const size_t r_idx = get_global_id(0);
   const size_t c_idx = get_global_id(1);
   const size_t width = get_global_size(1);
@@ -339,30 +382,30 @@ __kernel void hash_elements(__global ulong *in, __constant size_t *size,
     // because OpenCL C 1.2 accessing vector element
     // by index not allowed
     switch (i) {
-    case 0:
-      state.s0 = reduce_sum_vec2((ulong2)(state.s0, in[begin + j]));
-      break;
-    case 1:
-      state.s1 = reduce_sum_vec2((ulong2)(state.s1, in[begin + j]));
-      break;
-    case 2:
-      state.s2 = reduce_sum_vec2((ulong2)(state.s2, in[begin + j]));
-      break;
-    case 3:
-      state.s3 = reduce_sum_vec2((ulong2)(state.s3, in[begin + j]));
-      break;
-    case 4:
-      state.s4 = reduce_sum_vec2((ulong2)(state.s4, in[begin + j]));
-      break;
-    case 5:
-      state.s5 = reduce_sum_vec2((ulong2)(state.s5, in[begin + j]));
-      break;
-    case 6:
-      state.s6 = reduce_sum_vec2((ulong2)(state.s6, in[begin + j]));
-      break;
-    case 7:
-      state.s7 = reduce_sum_vec2((ulong2)(state.s7, in[begin + j]));
-      break;
+      case 0:
+        state.s0 = reduce_sum_vec2((ulong2)(state.s0, in[begin + j]));
+        break;
+      case 1:
+        state.s1 = reduce_sum_vec2((ulong2)(state.s1, in[begin + j]));
+        break;
+      case 2:
+        state.s2 = reduce_sum_vec2((ulong2)(state.s2, in[begin + j]));
+        break;
+      case 3:
+        state.s3 = reduce_sum_vec2((ulong2)(state.s3, in[begin + j]));
+        break;
+      case 4:
+        state.s4 = reduce_sum_vec2((ulong2)(state.s4, in[begin + j]));
+        break;
+      case 5:
+        state.s5 = reduce_sum_vec2((ulong2)(state.s5, in[begin + j]));
+        break;
+      case 6:
+        state.s6 = reduce_sum_vec2((ulong2)(state.s6, in[begin + j]));
+        break;
+      case 7:
+        state.s7 = reduce_sum_vec2((ulong2)(state.s7, in[begin + j]));
+        break;
     };
 
     if ((++i) % RATE_WIDTH == 0) {
@@ -404,9 +447,13 @@ __kernel void hash_elements(__global ulong *in, __constant size_t *size,
 //
 // You may want to take a look at
 // https://github.com/novifinancial/winterfell/tree/4eeb4670387f3682fa0841e09cdcbe1d43302bf3/crypto#rescue-hash-function-implementation
-__kernel void merge(__global ulong *in, __global ulong16 mds[12],
-                    __global ulong16 ark1[7], __global ulong16 ark2[7],
-                    __global ulong *out) {
+__kernel void
+merge(__global ulong* in,
+      __global ulong16 mds[12],
+      __global ulong16 ark1[7],
+      __global ulong16 ark2[7],
+      __global ulong* out)
+{
   const size_t r_idx = get_global_id(0);
   const size_t c_idx = get_global_id(1);
   const size_t width = get_global_size(1);
@@ -441,11 +488,13 @@ __kernel void merge(__global ulong *in, __global ulong16 mds[12],
 //
 // This function takes inspiration from
 // https://github.com/novifinancial/winterfell/blob/377e916c47fab3d9fa173b2f6123c7b713ffce03/crypto/src/merkle/concurrent.rs#L64-L67
-__kernel void build_merkle_tree_tip_seq(__global ulong *in_out_buf,
-                                        __constant size_t *num_subtrees,
-                                        __global ulong16 mds[12],
-                                        __global ulong16 ark1[7],
-                                        __global ulong16 ark2[7]) {
+__kernel void
+build_merkle_tree_tip_seq(__global ulong* in_out_buf,
+                          __constant size_t* num_subtrees,
+                          __global ulong16 mds[12],
+                          __global ulong16 ark1[7],
+                          __global ulong16 ark2[7])
+{
   if (get_global_id(0) == 0) {
     for (size_t i = num_subtrees[0] - 1; i > 0; i--) {
       ulong16 state = (ulong16)(0ul);
