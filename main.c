@@ -125,7 +125,16 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  status = test_build_merkle_nodes(ctx, c_queue, krnl_6, krnl_7);
+  size_t dev_mem_base_addr_align;
+  status =
+      device_memory_base_address_alignment(dev_id, &dev_mem_base_addr_align);
+  if (status != CL_SUCCESS) {
+    printf("failed to get device memory base address alignment !\n");
+    return EXIT_FAILURE;
+  }
+
+  status = test_build_merkle_nodes(ctx, c_queue, krnl_6, krnl_7,
+                                   dev_mem_base_addr_align);
   check(status);
 
   printf("\nRescue Prime Hash Benchmark\n\n");
@@ -141,8 +150,8 @@ int main() {
   }
   printf("\nRescue Prime Merkle Tree Benchmark\n\n");
   for (size_t i = 20; i < 25; i++) {
-    status =
-        bench_build_merkle_nodes(ctx, c_queue, krnl_6, krnl_7, 1ul << i, 128);
+    status = bench_build_merkle_nodes(ctx, c_queue, krnl_6, krnl_7, 1ul << i,
+                                      128, dev_mem_base_addr_align);
     check(status);
   }
 
