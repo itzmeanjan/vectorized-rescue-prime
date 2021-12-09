@@ -115,3 +115,17 @@ void random_field_elements(cl_ulong *in, size_t count) {
     *(in + i) = (cl_ulong)rand();
   }
 }
+
+cl_int device_memory_base_address_alignment(cl_device_id dev_id,
+                                            size_t *mem_base_addr_align) {
+  cl_int status;
+  cl_uint mem_base_addr_align_;
+  // this value is in terms of bits
+  status = clGetDeviceInfo(dev_id, CL_DEVICE_MEM_BASE_ADDR_ALIGN,
+                           sizeof(cl_uint), &mem_base_addr_align_, NULL);
+  check(status);
+
+  // so converting into bytes
+  *mem_base_addr_align = mem_base_addr_align_ >> 3;
+  return status;
+}

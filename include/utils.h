@@ -42,3 +42,8 @@ cl_int show_build_log(cl_device_id dev_id, cl_program prgm);
 // Which is why I've skipped the part of modulo dividing
 // generated random numbers
 void random_field_elements(cl_ulong *in, size_t count);
+
+// Queries device memory base address alignment (in terms of bytes) and places
+// in provided memory location
+cl_int device_memory_base_address_alignment(cl_device_id dev_id,
+                                           size_t *mem_base_addr_align);
