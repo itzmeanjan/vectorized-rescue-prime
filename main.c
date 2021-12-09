@@ -149,7 +149,7 @@ int main() {
     check(status);
   }
   printf("\nRescue Prime Merkle Tree Benchmark\n\n");
-  for (size_t i = 20; i < 25; i++) {
+  for (size_t i = 20; i < 24; i++) {
     status = bench_build_merkle_nodes(ctx, c_queue, krnl_6, krnl_7, 1ul << i,
                                       128, dev_mem_base_addr_align);
     check(status);

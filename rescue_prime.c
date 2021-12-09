@@ -92,7 +92,7 @@ cl_int bench_build_merkle_nodes(cl_context ctx, cl_command_queue cq,
                          global_size, local_size, &ts, dev_mem_base_addr_align);
   check(status);
 
-  printf("%15s\t\t%10lu\t\t%20.2f ms\n", "merklize", global_size,
+  printf("%15s\t\t%10lu leaves\t\t%20.2f ms\n", "merklize", global_size,
          (double)ts * 1e-6);
 
   free(in_arr);
@@ -199,7 +199,7 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
   if (!((leave_count >> 1) >= (subtree_count << 1))) {
     cl_buffer_region sub_buf_reg_0;
     sub_buf_reg_0.origin = 0;
-    sub_buf_reg_0.size = (leave_count >> 1) * io_width * sizeof(cl_ulong);
+    sub_buf_reg_0.size = leave_count * io_width * sizeof(cl_ulong);
 
     cl_mem in_out_sub_buf = clCreateSubBuffer(out_buf, CL_MEM_READ_WRITE,
                                               CL_BUFFER_CREATE_TYPE_REGION,
@@ -210,7 +210,7 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
         clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(size_t), NULL, &status);
     check(status);
 
-    const size_t subtree_count_ = leave_count >> 2;
+    const size_t subtree_count_ = leave_count >> 1;
     cl_event evt_5;
     status =
         clEnqueueWriteBuffer(cq, subtree_count_buf, CL_FALSE, 0, sizeof(size_t),
