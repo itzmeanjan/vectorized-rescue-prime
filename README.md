@@ -3,7 +3,9 @@ Vectorized, Accelerated Rescue Prime Hash Function Implementation, using OpenCL
 
 ## Motivation
 
-I've already implemented ZkSTARK-friendly Rescue Prime Hash function for 64-bit prime field `2^64 - 2^32 + 1`, using SYCL/ DPC++, targeting accelerators, running in Data Parallel environments. But in that implementation Rescue Hash state is represented in terms of array of 12 field elements. So I can't make use of vector intrinsics for operating on state, while applying Rescue permutation rounds. Anyway Rescue Prime hash function itself is not parallel, so it's only useful if we've lots of same width input to operate on, we can offload computation onto accelerators. Which is why I decided to take advantage of available vector intrinsics for representing and operating on Rescue Hash state. But note, Rescue Hash function has a fixed state width of 12 and in OpenCL, I can't have a vector of length 12. So instead I'm using `ulong16`, which is a 16-element wide vector with each element being unsigned 64-bit integer, for representing hash state. This comes with an extra cost, as you've guessed. When I've M x N -many independent Rescue Prime Hashes to be computed, each of those M x N -many OpenCL work-items need to spend 4 * 64 bits = 256-bits for padding Rescue Hash state, so that I can use `ulong16`, but only first 12 elements are useful. I'm required to waste M x N x 32 -bytes of memory, when computing M x N -many independent hashes. But computation itself should be fast, because when using vector intrinsics for operating on Hash state, OpenCL device compiler should generate machine code which can make use of SIMD instructions very well. 
+I've already implemented ZkSTARK-friendly Rescue Prime Hash function for 64-bit prime field `2^64 - 2^32 + 1`, using SYCL/ DPC++, targeting accelerators, running in Data Parallel environments. But in that implementation Rescue Hash state is represented in terms of array of 12 field elements. So I can't make use of vector intrinsics for operating on state, while applying Rescue permutation rounds. Anyway Rescue Prime hash function itself is not parallel, so it's only useful if we've lots of same width input to operate on, we can offload computation onto accelerators. Which is why I decided to take advantage of available vector intrinsics for representing and operating on Rescue Hash state. But note, Rescue Hash function has a fixed state width of 12 and in OpenCL, I can't have a vector of length 12. So instead I'm using `ulong16`, which is a 16-element wide vector with each element being unsigned 64-bit integer, for representing hash state. This comes with an extra cost, as you've guessed. When I've M x N -many independent Rescue Prime Hashes to be computed, each of those M x N -many OpenCL work-items need to spend 4 * 64 bits = 256-bits for padding Rescue Hash state, so that I can use `ulong16`, but only first 12 elements are useful. I'm required to waste M x N x 32 -bytes of memory, when computing M x N -many independent hashes. But computation itself should be fast, because when using vector intrinsics for operating on Hash state, OpenCL device compiler should generate machine code which can make use of SIMD instructions very well.
+
+As an application of Rescue Prime Hash function, I've implemented OpenCL accelerated Merkle Tree Construction function, where tree leaves are expected and all intermediate nodes are computed in parallel ( though somewhat involved due to complicated data dependency )
 
 > [64-bit Prime field](https://github.com/itzmeanjan/ff-gpu/blob/2c78ddf2cf4ff2d1b678e811761d0f06a4c42f73/include/ff_p.hpp#L4-L7) of interest.
 
@@ -47,15 +49,19 @@ make
 ./run
 ```
 
-- It should run some standard test cases against kernels and finally a benchmark suite is run on Rescue Prime `hash_elements` and `merge` kernel function.
+- It should run some standard test cases against kernels and finally a benchmark suite is run on Rescue Prime `hash_elements` and `merge` kernel function, along with an application of rescue prime hash, where I compute intermediate nodes of merkle tree, given all leaves, using `build_merkle_nodes` function.
 
 > You probably want to take a look at vectorized `hash_elements`/ `merge` [OpenCL kernels](https://github.com/itzmeanjan/vectorized-rescue-prime/blob/f2316e3b8425e0484e69817e3e45ac0c3d60187b/kernel.cl#L307-L428), if you want to use it in your project.
+
+> For accelerated Merkle Tree construction routine, check out [this](https://github.com/itzmeanjan/vectorized-rescue-prime/blob/c48b8555e07eb9557a20383cc9f3a4aeec834317/rescue_prime.c#L153-L164)
 
 > You can find relevant examples [here](https://github.com/itzmeanjan/vectorized-rescue-prime/blob/6d2e242ce1af02f4c3d24a182b6068b42f6e1bfb/rescue_prime.c#L630-L828)
 
 ## Benchmark
 
 For setting up benchmark in data parallel environment, I use one 2D computational grid of size M x N, and launch `hash_elements`, `merge` kernels with input of size M x N x 8. So each work-item will read 8 randomly generated 64-bit prime field elements and total of M x N-many independent hashes to be computed/ merging of hash digests to be performed. Output to be written into global memory with OpenCL vector store intrinsics. For writing output I provide with one buffer of size M x N x 4, so that each work-item can produce output of width 4-prime field elements i.e. 256-bits. In following benchmark results I only show time to compute hash/ merge by enabling profiling in command queue, host-device and device-host data transfer costs are not included, though they are performed just to ensure compiler doesn't end up optimizing too much so that benchmark suite doesn't run kernels as I expect it to be run.
+
+I also benchmark routine where I compute all intermediate nodes of Merkle Tree, using Rescue Prime Hash function. I supply kernel with N-many random leaves of Merkle Tree, where N = power of 2. Due to somewhat complicated access patterns and data dependencies, Merkle Tree construction routine enqueues multiple kernel dispatches. In following benchmark results, only execution of all those kernel dispatches are computed ( i.e. summed together ), no device <-> host data transfer cost in considered, though performed ( explicitly ).
 
 ### Intel CPU with OpenCL
 
