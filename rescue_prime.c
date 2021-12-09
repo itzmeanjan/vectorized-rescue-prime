@@ -195,6 +195,95 @@ cl_int build_merkle_nodes(cl_context ctx, cl_command_queue cq,
 
   // intermediate nodes in tip of tree, to be computed sequentially
   const size_t subtree_count = (dev_mem_base_addr_align >> 5);
+
+  if (!((leave_count >> 1) >= (subtree_count << 1))) {
+    cl_buffer_region sub_buf_reg_0;
+    sub_buf_reg_0.origin = 0;
+    sub_buf_reg_0.size = (leave_count >> 1) * io_width * sizeof(cl_ulong);
+
+    cl_mem in_out_sub_buf = clCreateSubBuffer(out_buf, CL_MEM_READ_WRITE,
+                                              CL_BUFFER_CREATE_TYPE_REGION,
+                                              &sub_buf_reg_0, &status);
+    check(status);
+
+    cl_mem subtree_count_buf =
+        clCreateBuffer(ctx, CL_MEM_READ_ONLY, sizeof(size_t), NULL, &status);
+    check(status);
+
+    const size_t subtree_count_ = leave_count >> 2;
+    cl_event evt_5;
+    status =
+        clEnqueueWriteBuffer(cq, subtree_count_buf, CL_FALSE, 0, sizeof(size_t),
+                             &subtree_count_, 0, NULL, &evt_5);
+    check(status);
+
+    status = clSetKernelArg(tip_krnl, 0, sizeof(cl_mem), &in_out_sub_buf);
+    check(status);
+    status = clSetKernelArg(tip_krnl, 1, sizeof(cl_mem), &subtree_count_buf);
+    check(status);
+    status = clSetKernelArg(tip_krnl, 2, sizeof(cl_mem), &mds_buf);
+    check(status);
+    status = clSetKernelArg(tip_krnl, 3, sizeof(cl_mem), &ark1_buf);
+    check(status);
+    status = clSetKernelArg(tip_krnl, 4, sizeof(cl_mem), &ark2_buf);
+    check(status);
+
+    size_t global_size_2[] = {1};
+    size_t local_size_2[] = {1};
+    cl_event evts_1[] = {evt_4, evt_5};
+    cl_event evt_6;
+    status = clEnqueueNDRangeKernel(cq, tip_krnl, 1, NULL, global_size_2,
+                                    local_size_2, 2, evts_1, &evt_6);
+    check(status);
+
+    cl_event evt_7;
+    status = clEnqueueReadBuffer(cq, out_buf, CL_FALSE, 0, out_size, out, 1,
+                                 &evt_6, &evt_7);
+    check(status);
+
+    status = clWaitForEvents(1, &evt_7);
+    check(status);
+
+    if (ts != NULL) {
+      cl_ulong start, end;
+      *ts = 0; // zerod before accumulation, just to be safe
+
+      status = clGetEventProfilingInfo(evt_4, CL_PROFILING_COMMAND_START,
+                                       sizeof(cl_ulong), &start, NULL);
+      status = clGetEventProfilingInfo(evt_4, CL_PROFILING_COMMAND_END,
+                                       sizeof(cl_ulong), &end, NULL);
+      *ts += (end - start);
+
+      status = clGetEventProfilingInfo(evt_6, CL_PROFILING_COMMAND_START,
+                                       sizeof(cl_ulong), &start, NULL);
+      status = clGetEventProfilingInfo(evt_6, CL_PROFILING_COMMAND_END,
+                                       sizeof(cl_ulong), &end, NULL);
+      *ts += (end - start);
+    }
+
+    // deallocate all opencl related resources which were acquired
+    // during execution of this function
+    clReleaseEvent(evt_0);
+    clReleaseEvent(evt_1);
+    clReleaseEvent(evt_2);
+    clReleaseEvent(evt_3);
+    clReleaseEvent(evt_4);
+    clReleaseEvent(evt_5);
+    clReleaseEvent(evt_6);
+    clReleaseEvent(evt_7);
+
+    clReleaseMemObject(subtree_count_buf);
+    clReleaseMemObject(in_out_sub_buf);
+    clReleaseMemObject(out_sub_buf_);
+    clReleaseMemObject(in_buf);
+    clReleaseMemObject(out_buf);
+    clReleaseMemObject(mds_buf);
+    clReleaseMemObject(ark1_buf);
+    clReleaseMemObject(ark2_buf);
+
+    return status;
+  }
+
   // data parallel intermediate node compute stages, where n-th one
   // depends on completion of (n-1)-th
   const size_t rounds =
