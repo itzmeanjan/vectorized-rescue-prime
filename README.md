@@ -1,3 +1,7 @@
+> **Warning**
+
+**I've stopped maintaining this project !**
+
 # vectorized-rescue-prime
 Vectorized, Accelerated Rescue Prime Hash Function Implementation, using OpenCL
 
